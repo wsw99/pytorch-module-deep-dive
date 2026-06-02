@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}} — PyTorch module.py Deep Dive</title>
+    <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="../../index.html" class="nav-logo">🧠 PyTorch Module Deep Dive</a>
+        </div>
+        <div class="nav-links">
+            <a href="../../index.html" class="nav-item">🏠 首页流程图</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropbtn">📓 Notebooks ▾</button>
+                <div class="nav-dropdown-content">
+                    <a href="01_module_initialization.html" class="nav-item">01 · Module 初始化与属性拦截</a>
+                    <a href="02_parameter_and_buffer.html" class="nav-item">02 · Parameter 与 Buffer</a>
+                    <a href="03_module_hierarchy.html" class="nav-item">03 · Module 层级导航</a>
+                    <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
+                    <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
+                    <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
+                    <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
+                    <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
+                    <a href="09_containers.html" class="nav-item">09 · 容器类</a>
+                    <a href="10_compilation_and_internals.html" class="nav-item">10 · 编译系统与内部细节</a>
+                </div>
+            </div>
+            <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py"
+               target="_blank" class="nav-item nav-source">📄 module.py ↗</a>
+            <button id="themeToggle" class="nav-item theme-btn" title="切换主题">🌓</button>
+        </div>
+    </nav>
+
+    <!-- Notebook 内容区 -->
+    <main class="main-content">
+        <header class="page-header">
+            <h1>{{TITLE}}</h1>
+            <p class="subtitle">{{SUBTITLE}}</p>
+        </header>
+
+        <div class="diagram-container">
+            {{CONTENT}}
+        </div>
+    </main>
+
+    <footer>
+        <p>
+            PyTorch module.py Deep Dive ·
+            <a href="../../index.html">Home</a> ·
+            <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a>
+        </p>
+    </footer>
+
+    <script src="../../js/main.js"></script>
+</body>
+</html>

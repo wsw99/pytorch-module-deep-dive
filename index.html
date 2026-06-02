@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyTorch module.py 源码深度学习</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+        });
+    </script>
+</head>
+<body>
+    <!-- ===== 顶部导航栏 ===== -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="index.html" class="nav-logo">🧠 PyTorch Module Deep Dive</a>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item active" data-page="home">🏠 首页流程图</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropbtn">📓 Notebooks ▾</button>
+                <div class="nav-dropdown-content">
+                    <a href="notebooks/html/01_module_initialization.html" class="nav-item" data-page="nb01">01 · Module 初始化与属性拦截</a>
+                    <a href="notebooks/html/02_parameter_and_buffer.html" class="nav-item" data-page="nb02">02 · Parameter 与 Buffer</a>
+                    <a href="notebooks/html/03_module_hierarchy.html" class="nav-item" data-page="nb03">03 · Module 层级导航</a>
+                    <a href="notebooks/html/04_device_and_dtype.html" class="nav-item" data-page="nb04">04 · 设备迁移与类型转换</a>
+                    <a href="notebooks/html/05_training_mode.html" class="nav-item" data-page="nb05">05 · 训练模式与梯度管理</a>
+                    <a href="notebooks/html/06_forward_and_hooks.html" class="nav-item" data-page="nb06">06 · Forward 调用链与 Hook</a>
+                    <a href="notebooks/html/07_state_serialization.html" class="nav-item" data-page="nb07">07 · 状态序列化</a>
+                    <a href="notebooks/html/08_global_hooks_and_advanced.html" class="nav-item" data-page="nb08">08 · 全局 Hook 与高级机制</a>
+                    <a href="notebooks/html/09_containers.html" class="nav-item" data-page="nb09">09 · 容器类</a>
+                    <a href="notebooks/html/10_compilation_and_internals.html" class="nav-item" data-page="nb10">10 · 编译系统与内部细节</a>
+                </div>
+            </div>
+            <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py"
+               target="_blank" class="nav-item nav-source">📄 源码 module.py ↗</a>
+            <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/container.py"
+               target="_blank" class="nav-item nav-source">📦 源码 container.py ↗</a>
+            <button id="themeToggle" class="nav-item theme-btn" title="切换亮色/暗色主题">🌓</button>
+        </div>
+    </nav>
+
+    <!-- ===== 首页主内容区 ===== -->
+    <main class="main-content" id="homePage">
+        <header class="page-header">
+            <h1>PyTorch <code>module.py</code> 内部机制全景图</h1>
+            <p class="subtitle">
+                通过 6 张交互式流程图，展示 <code>nn.Module</code> 全部 class 与 function 的协作关系与数据流。
+                点击上方 <strong>Notebooks</strong> 下拉菜单进入逐主题深度学习。
+            </p>
+        </header>
+
+        <!-- Tab 切换栏 -->
+        <div class="tab-bar" id="diagramTabs">
+            <button class="tab-btn active" data-tab="overview">🗺️ 全景总览</button>
+            <button class="tab-btn" data-tab="setattr">🔀 属性注册</button>
+            <button class="tab-btn" data-tab="forward">⚡ Forward 调用链</button>
+            <button class="tab-btn" data-tab="apply">🔄 设备/类型转换</button>
+            <button class="tab-btn" data-tab="serialization">💾 序列化</button>
+            <button class="tab-btn" data-tab="navigation">🌳 层级导航</button>
+        </div>
+
+        <!-- 流程图容器 -->
+        <div class="diagram-container">
+            <!-- Tab 1: 全景总览 -->
+            <div class="diagram-panel active" id="panel-overview">
+                <h2>Module 系统全景总览</h2>
+                <p class="diagram-desc">
+                    展示 <code>nn.Module</code> 的全部核心组件：内部数据结构（<code>_parameters</code> / <code>_buffers</code> / <code>_modules</code>）、
+                    外部接口（属性拦截 / 设备转换 / 序列化 / Hook）、以及关联容器类（<code>Sequential</code> / <code>ModuleList</code> / <code>ModuleDict</code>）。
+                    箭头表示数据流或调用关系。
+                </p>
+                <div class="mermaid">
+graph TB
+    subgraph External["👤 用户代码"]
+        USER["model = MyModule()<br/>model(x)<br/>model.cuda()<br/>model.state_dict()"]
+    end
+
+    subgraph Module["nn.Module 核心"]
+        INIT["__init__<br/>初始化 3 个 OrderedDict"]
+        SETATTR["__setattr__<br/>属性自动分类"]
+        CALL["__call__ → _call_impl<br/>hook + forward 编排"]
+        FORWARD["forward()<br/>用户定义 ↑ 必须覆写"]
+        APPLY["_apply(fn)<br/>递归转换引擎"]
+        SERIAL["state_dict()<br/>load_state_dict()<br/>序列化系统"]
+        NAV["named_modules()<br/>named_parameters()<br/>DFS 遍历"]
+        MODE["train() / eval()<br/>zero_grad()<br/>模式管理"]
+    end
+
+    subgraph Internal["📦 内部字典"]
+        PARAMS["_parameters<br/>OrderedDict[str, Parameter]"]
+        BUFFERS["_buffers<br/>OrderedDict[str, Tensor]"]
+        MODULES["_modules<br/>OrderedDict[str, Module]"]
+        HOOKS["_forward_pre_hooks<br/>_forward_hooks<br/>_backward_hooks<br/>_state_dict_hooks"]
+    end
+
+    subgraph Containers["📦 关联容器 (container.py)"]
+        SEQ["nn.Sequential"]
+        ML["nn.ModuleList"]
+        MD["nn.ModuleDict"]
+        PL["nn.ParameterList"]
+        PD["nn.ParameterDict"]
+    end
+
+    subgraph GlobalHooks["🌐 全局 Hook"]
+        GH["register_module_forward_hook()<br/>register_module_backward_hook()<br/>_global_*_hooks OrderedDict"]
+    end
+
+    subgraph Output["📤 输出"]
+        OUT_PARAM["parameters() → Iterator[Parameter]"]
+        OUT_STATE["state_dict() → OrderedDict"]
+        OUT_MOD["named_modules() → Iterator[(str, Module)]"]
+        OUT_RESULT["model(x) → Tensor"]
+        INCOMPAT["_IncompatibleKeys<br/>missing_keys + unexpected_keys"]
+    end
+
+    USER --> SETATTR
+    USER --> CALL
+    USER --> APPLY
+    USER --> SERIAL
+    USER --> MODE
+
+    INIT --> PARAMS
+    INIT --> BUFFERS
+    INIT --> MODULES
+    INIT --> HOOKS
+
+    SETATTR -->|isinstance Parameter| PARAMS
+    SETATTR -->|isinstance Module| MODULES
+    SETATTR -->|name in _buffers| BUFFERS
+    SETATTR -->|else| USER
+
+    CALL --> HOOKS
+    CALL --> FORWARD
+    CALL --> GlobalHooks
+
+    APPLY --> PARAMS
+    APPLY --> BUFFERS
+    APPLY --> MODULES
+
+    SERIAL --> PARAMS
+    SERIAL --> BUFFERS
+    SERIAL --> MODULES
+    SERIAL --> INCOMPAT
+
+    NAV --> MODULES
+    NAV --> PARAMS
+
+    PARAMS --> OUT_PARAM
+    SERIAL --> OUT_STATE
+    NAV --> OUT_MOD
+    FORWARD --> OUT_RESULT
+
+    Containers -.->|继承| Module
+    SEQ -.->|子类| Module
+    ML -.->|子类| Module
+    MD -.->|子类| Module
+
+    style Module fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Internal fill:#fff3e0,stroke:#e65100
+    style Containers fill:#e8f5e9,stroke:#1b5e20
+    style GlobalHooks fill:#fce4ec,stroke:#880e4f
+    style Output fill:#f3e5f5,stroke:#4a148c
+                </div>
+            </div>
+
+            <!-- Tab 2: 属性注册 -->
+            <div class="diagram-panel" id="panel-setattr">
+                <h2>属性注册：__setattr__ 自动分类路由</h2>
+                <p class="diagram-desc">
+                    当执行 <code>self.conv = nn.Conv2d(3, 64, 3)</code> 时，<code>__setattr__</code> 如何自动检测赋值类型，
+                    并将其路由到 <code>_modules</code>。同样地，<code>nn.Parameter</code> → <code>_parameters</code>，
+                    已注册 Buffer → <code>_buffers</code>，普通属性 → <code>object.__setattr__</code>。
+                    <strong>这是 Module 系统最核心的魔法。</strong>
+                </p>
+                <div class="mermaid">
+flowchart TD
+    START(["self.x = value"])
+    CHECK_PARAM{"isinstance(value, Parameter)?"}
+    CHECK_MODULE{"isinstance(value, Module)?"}
+    CHECK_BUFFER{"name in self._buffers?"}
+    CHECK_EXISTING{"name in self._parameters<br/>or _modules or _buffers?"}
+    REMOVE_OLD["从旧字典中移除"]
+    ROUTE_PARAM["self._parameters[name] = value<br/>✅ value 被优化器追踪"]
+    ROUTE_MODULE["self._modules[name] = value<br/>✅ value 参与递归遍历"]
+    ROUTE_BUFFER["self._buffers[name] = value<br/>✅ value 参与 to()/state_dict()"]
+    ROUTE_NORMAL["object.__setattr__(self, name, value)<br/>⚠️ 普通属性：不被追踪"]
+    REGISTER_HOOK{"value 有 _forward_hooks<br/>或 _forward_pre_hooks?"}
+    TRANSFER_HOOKS["自动将子模块 hook<br/>注册到父模块"]
+    END(["✅ 赋值完成"])
+
+    START --> CHECK_PARAM
+    CHECK_PARAM -->|是| REMOVE_OLD
+    CHECK_PARAM -->|否| CHECK_MODULE
+    REMOVE_OLD --> ROUTE_PARAM
+    ROUTE_PARAM --> END
+
+    CHECK_MODULE -->|是| REMOVE_OLD
+    CHECK_MODULE -->|否| CHECK_BUFFER
+    ROUTE_MODULE --> REGISTER_HOOK
+    REGISTER_HOOK -->|是| TRANSFER_HOOKS
+    REGISTER_HOOK -->|否| END
+    TRANSFER_HOOKS --> END
+
+    CHECK_BUFFER -->|是| ROUTE_BUFFER
+    CHECK_BUFFER -->|否| CHECK_EXISTING
+    ROUTE_BUFFER --> END
+
+    CHECK_EXISTING -->|是| REMOVE_OLD
+    CHECK_EXISTING -->|否| ROUTE_NORMAL
+    ROUTE_NORMAL --> END
+
+    style ROUTE_PARAM fill:#c8e6c9,stroke:#2e7d32
+    style ROUTE_MODULE fill:#c8e6c9,stroke:#2e7d32
+    style ROUTE_BUFFER fill:#fff9c4,stroke:#f9a825
+    style ROUTE_NORMAL fill:#ffcdd2,stroke:#c62828
+    style START fill:#e3f2fd,stroke:#1565c0
+    style END fill:#e3f2fd,stroke:#1565c0
+                </div>
+            </div>
+
+            <!-- Tab 3: Forward 调用链 -->
+            <div class="diagram-panel" id="panel-forward">
+                <h2>Forward 调用链：model(x) 到底发生了什么</h2>
+                <p class="diagram-desc">
+                    <strong>永远不要调用 <code>model.forward(x)</code>，要调用 <code>model(x)</code>。</strong>
+                    因为 <code>__call__</code> 会在 forward 前后执行 hook 系统。
+                    执行顺序：全局 pre-hooks → 局部 pre-hooks → forward → 局部 hooks → 全局 hooks。
+                    每个 hook 都可以修改输入/输出，甚至替换 forward 的返回值。
+                </p>
+                <div class="mermaid">
+sequenceDiagram
+    participant User as 👤 model(x)
+    participant Call as __call__
+    participant Impl as _call_impl
+    participant GlobalPre as 🌐 _global_forward_pre_hooks
+    participant LocalPre as 📍 _forward_pre_hooks
+    participant Fwd as ⚡ forward()
+    participant LocalPost as 📍 _forward_hooks
+    participant GlobalPost as 🌐 _global_forward_hooks
+    participant Result as 📤 output
+
+    User->>Call: model(x, **kwargs)
+    Call->>Impl: _call_impl(*args, **kwargs)
+
+    Note over Impl: 1. 检查 torch.compile 是否已编译
+
+    Impl->>GlobalPre: 执行全局 pre-hooks
+    GlobalPre-->>Impl: (可能修改的 args, kwargs)
+
+    Impl->>LocalPre: 执行局部 pre-hooks
+    LocalPre-->>Impl: (可能修改的 args, kwargs)
+
+    Note over Impl: 执行前处理完成
+
+    Impl->>Fwd: result = forward(*args, **kwargs)
+    Fwd-->>Impl: result
+
+    Impl->>LocalPost: 执行局部 forward hooks
+    LocalPost-->>Impl: (可能修改的 result)
+
+    Impl->>GlobalPost: 执行全局 forward hooks
+    GlobalPost-->>Impl: (可能修改的 result)
+
+    Impl-->>Call: 最终 result
+    Call-->>User: output
+
+    Note over User,Result: 🔒 Hook 可以随时通过<br/>handle.remove() 移除
+                </div>
+            </div>
+
+            <!-- Tab 4: 设备/类型转换 -->
+            <div class="diagram-panel" id="panel-apply">
+                <h2>设备与类型转换：_apply 是所有转换的引擎</h2>
+                <p class="diagram-desc">
+                    <code>model.cuda()</code>、<code>model.float()</code>、<code>model.to(device)</code> 等全部委托给 <code>_apply(fn)</code>。
+                    <strong>关键顺序</strong>：先递归处理子模块 → 再转换自己的参数（含 .grad）→ 最后转换自己的 Buffer。
+                    而 <code>model.apply(fn)</code>（少了下划线）走的是另一条路——对每个子模块递归调用 <code>fn(module)</code>，用于权重初始化。
+                </p>
+                <div class="mermaid">
+flowchart TD
+    START(["用户调用"])
+    TO{"to(device, dtype, ...)?"}
+    CUDA["cuda(device)"]
+    CPU["cpu()"]
+    FLOAT["float() / double()<br/>half() / bfloat16()"]
+    TYPE["type(dtype)"]
+    TO_EMPTY["to_empty(device)"]
+    OTHER["其他快捷方法"]
+    APPLY_USER["apply(fn)<br/>对每个子模块调 fn(m)<br/>bottom-up 遍历<br/>常用于权重初始化"]
+    APPLY_ENGINE["_apply(fn)<br/>内部转换引擎<br/>top-down 遍历"]
+    CHILDREN["1️⃣ 递归处理子模块<br/>for child in children:<br/>    child._apply(fn)"]
+    PARAMS_T["2️⃣ 转换 _parameters<br/>for name, param in _parameters:<br/>    param_applied = fn(param)<br/>    if param.grad is not None:<br/>        grad_applied = fn(param.grad)"]
+    BUFFERS_T["3️⃣ 转换 _buffers<br/>for name, buf in _buffers:<br/>    self._buffers[name] = fn(buf)"]
+    END(["✅ 返回 self<br/>支持链式调用 model.cuda().float()"])
+
+    START --> TO
+    TO -->|是| APPLY_ENGINE
+    TO -->|否| OTHER
+    CUDA --> TO
+    CPU --> TO
+    FLOAT --> TO
+    TYPE --> TO
+    TO_EMPTY --> TO
+    OTHER --> TO
+
+    APPLY_ENGINE --> CHILDREN
+    CHILDREN --> PARAMS_T
+    PARAMS_T --> BUFFERS_T
+    BUFFERS_T --> END
+
+    APPLY_USER -.->|"不同路径<br/>fn(module) 而非 fn(tensor)"| CHILDREN
+
+    style APPLY_ENGINE fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style APPLY_USER fill:#e1bee7,stroke:#6a1b9a
+    style CHILDREN fill:#e3f2fd,stroke:#1565c0
+    style PARAMS_T fill:#c8e6c9,stroke:#2e7d32
+    style BUFFERS_T fill:#ffe0b2,stroke:#e65100
+                </div>
+            </div>
+
+            <!-- Tab 5: 序列化 -->
+            <div class="diagram-panel" id="panel-serialization">
+                <h2>状态序列化：模型保存与加载的完整流程</h2>
+                <p class="diagram-desc">
+                    <code>state_dict()</code> 递归收集所有持久化参数和 Buffer（跳过 <code>persistent=False</code> 的 Buffer），
+                    返回以层级路径为 key 的 <code>OrderedDict</code>。<code>load_state_dict()</code> 反向操作，
+                    返回 <code>_IncompatibleKeys(missing_keys, unexpected_keys)</code>。
+                    Hook 系统允许在保存/加载前后注入自定义逻辑。
+                </p>
+                <div class="mermaid">
+flowchart LR
+    subgraph SAVE["💾 保存: state_dict()"]
+        S1["state_dict(destination, prefix, keep_vars)"]
+        S2["_save_to_state_dict()"]
+        S3["执行 state_dict_pre_hooks"]
+        S4["遍历 _parameters → 存入 destination"]
+        S5["遍历 _buffers (persistent=True) → 存入"]
+        S6["执行 state_dict_post_hooks<br/>(可做类型转换/重命名)"]
+        S7["递归处理 _modules<br/>child.state_dict(destination, prefix+name)"]
+        S8["输出: OrderedDict<br/>key='layer1.conv.weight'<br/>value=Tensor"]
+    end
+
+    subgraph LOAD["📥 加载: load_state_dict()"]
+        L1["load_state_dict(state_dict, strict=True)"]
+        L2["执行 load_state_dict_pre_hooks"]
+        L3["_load_from_state_dict()"]
+        L4["逐 key 匹配 → 加载到 _parameters / _buffers"]
+        L5["收集 missing_keys (期望但未找到)"]
+        L6["收集 unexpected_keys (已加载但未使用)"]
+        L7["返回 _IncompatibleKeys"]
+        L8["strict=True 且有不匹配 → ⚠️ 报错<br/>strict=False → 静默忽略"]
+    end
+
+    subgraph EXTRA["🔧 扩展"]
+        E1["get_extra_state() → 获取非 Tensor 状态"]
+        E2["set_extra_state(state) → 恢复非 Tensor 状态"]
+        E3["_version 类属性 → 向后兼容"]
+    end
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8
+    L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7
+    L7 --> L8
+
+    S8 -.->|保存到磁盘<br/>torch.save()| L1
+    EXTRA -.-> SAVE
+    EXTRA -.-> LOAD
+
+    style SAVE fill:#e8f5e9,stroke:#2e7d32
+    style LOAD fill:#e3f2fd,stroke:#1565c0
+    style EXTRA fill:#fff3e0,stroke:#e65100
+                </div>
+            </div>
+
+            <!-- Tab 6: 层级导航 -->
+            <div class="diagram-panel" id="panel-navigation">
+                <h2>层级导航：Module 树的 DFS 遍历与去重</h2>
+                <p class="diagram-desc">
+                    <code>named_modules()</code> 使用 <strong>DFS pre-order</strong> 遍历整个 Module 树，通过 <code>memo</code> set
+                    确保每个 Module 只被 yield 一次。<code>named_parameters()</code> 和 <code>named_buffers()</code>
+                    共用 <code>_named_members()</code> 引擎——先遍历 Module 树，再从每个 Module 中提取对应类型的成员。
+                    <code>children()</code> 只返回直接子模块（非递归）。
+                </p>
+                <div class="mermaid">
+flowchart TD
+    subgraph TREE["🌳 示例 Module 树"]
+        ROOT["MyModel"]
+        ENC["encoder (ModuleDict)"]
+        L0["layer.0 (Linear)"]
+        L1["layer.1 (Linear)"]
+        DEC["decoder (Linear)"]
+        ROOT --> ENC
+        ROOT --> DEC
+        ENC --> L0
+        ENC --> L1
+    end
+
+    subgraph TRAVERSE["🔄 named_modules() DFS Pre-order"]
+        T1["memo = set()<br/>从 self 开始"]
+        T2{"self in memo?"}
+        T3["memo.add(self)<br/>yield (prefix, self)"]
+        T4["for name, module in self._modules.items():"]
+        T5["递归 module.named_modules(<br/>    memo=memo,<br/>    prefix=prefix+'.'+name)"]
+        T6["✅ 输出：<br/>('', MyModel)<br/>('encoder', ModuleDict)<br/>('encoder.layer.0', Linear)<br/>('encoder.layer.1', Linear)<br/>('decoder', Linear)"]
+    end
+
+    subgraph PARAM_NAV["🔍 named_parameters() 共用 _named_members()"]
+        P1["_named_members(get_members_fn, prefix, recurse)"]
+        P2["遍历 named_modules()"]
+        P3["对每个 module:<br/>for k,v in get_members_fn(module):<br/>    if v not in memo: memo.add(v)<br/>    yield prefix+'.'+k, v"]
+        P4["get_members_fn = lambda m: m._parameters.items()"]
+    end
+
+    TREE --> TRAVERSE
+    T1 --> T2
+    T2 -->|否| T3
+    T3 --> T4
+    T4 --> T5
+    T5 --> T6
+    T2 -->|是| T6
+
+    PARAM_NAV --> P1 --> P2 --> P3 --> P4
+
+    style TREE fill:#e8f5e9,stroke:#2e7d32
+    style TRAVERSE fill:#e3f2fd,stroke:#1565c0
+    style PARAM_NAV fill:#fff3e0,stroke:#e65100
+    style T6 fill:#c8e6c9,stroke:#2e7d32
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ===== Notebook iframe 容器（首页隐藏） ===== -->
+    <div class="notebook-viewer" id="notebookViewer" style="display:none;">
+        <iframe id="notebookFrame" src="" frameborder="0" width="100%" height="100%"></iframe>
+    </div>
+
+    <footer>
+        <p>
+            PyTorch module.py Deep Dive ·
+            <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a> ·
+            Licensed under CC BY-SA 4.0
+        </p>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

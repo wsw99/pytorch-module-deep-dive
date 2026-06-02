@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09 · 容器类 — PyTorch module.py Deep Dive</title>
+    <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <div class="nav-brand"><a href="../../index.html" class="nav-logo">🧠 PyTorch Module Deep Dive</a></div>
+    <div class="nav-links">
+        <a href="../../index.html" class="nav-item">🏠 首页流程图</a>
+        <div class="nav-dropdown">
+            <button class="nav-dropbtn">📓 Notebooks ▾</button>
+            <div class="nav-dropdown-content">
+                <a href="01_module_initialization.html" class="nav-item">01 · Module 初始化与属性拦截</a>
+                <a href="02_parameter_and_buffer.html" class="nav-item">02 · Parameter 与 Buffer</a>
+                <a href="03_module_hierarchy.html" class="nav-item">03 · Module 层级导航</a>
+                <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
+                <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
+                <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
+                <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
+                <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
+                <a href="09_containers.html" class="nav-item active">09 · 容器类</a>
+                <a href="10_compilation_and_internals.html" class="nav-item">10 · 编译系统与内部细节</a>
+            </div>
+        </div>
+        <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank" class="nav-item nav-source">📄 module.py ↗</a>
+        <button id="themeToggle" class="nav-item theme-btn" title="切换主题">🌓</button>
+    </div>
+</nav>
+<main class="main-content">
+    <header class="page-header">
+        <h1>09 · 容器类（container.py）</h1>
+        <p class="subtitle">覆盖：<code>nn.Sequential</code>, <code>nn.ModuleList</code>, <code>nn.ModuleDict</code>, <code>nn.ParameterList</code>, <code>nn.ParameterDict</code></p>
+    </header>
+    <div class="diagram-container">
+        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
+            <p style="font-size: 4rem;">📝</p>
+            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
+            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
+        </div>
+        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
+            <h3>📋 本 Notebook 大纲</h3>
+            <h4>Part A: 源码阅读</h4>
+            <ul><li><code>Sequential.__getitem__</code> 的索引/切片实现</li><li><code>ModuleList</code> 如何 override <code>__setattr__</code> 来注册子模块</li><li><code>ModuleDict</code> 的 key-based 子模块管理</li><li><code>ParameterList/ParameterDict</code> 的参数自动注册</li></ul>
+            <h4>Part B: 机制分析</h4>
+            <ul><li>nn.ModuleList vs Python list：参数可见性核心差异</li><li>Sequential 的 OrderedDict 命名规则</li><li>ModuleDict 的嵌套递归行为</li></ul>
+            <h4>Part C: 动手实验</h4>
+            <ul><li>实验 1：ModuleList vs Python list 在 named_parameters() 中的差异</li><li>实验 2：Sequential 的切片访问与索引访问</li><li>实验 3：ModuleDict 动态增删子模块</li></ul>
+        </div>
+    </div>
+</main>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<script src="../../js/main.js"></script>
+</body>
+</html>

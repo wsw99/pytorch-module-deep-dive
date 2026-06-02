@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10 · 编译系统与内部细节 — PyTorch module.py Deep Dive</title>
+    <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <div class="nav-brand"><a href="../../index.html" class="nav-logo">🧠 PyTorch Module Deep Dive</a></div>
+    <div class="nav-links">
+        <a href="../../index.html" class="nav-item">🏠 首页流程图</a>
+        <div class="nav-dropdown">
+            <button class="nav-dropbtn">📓 Notebooks ▾</button>
+            <div class="nav-dropdown-content">
+                <a href="01_module_initialization.html" class="nav-item">01 · Module 初始化与属性拦截</a>
+                <a href="02_parameter_and_buffer.html" class="nav-item">02 · Parameter 与 Buffer</a>
+                <a href="03_module_hierarchy.html" class="nav-item">03 · Module 层级导航</a>
+                <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
+                <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
+                <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
+                <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
+                <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
+                <a href="09_containers.html" class="nav-item">09 · 容器类</a>
+                <a href="10_compilation_and_internals.html" class="nav-item active">10 · 编译系统与内部细节</a>
+            </div>
+        </div>
+        <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank" class="nav-item nav-source">📄 module.py ↗</a>
+        <button id="themeToggle" class="nav-item theme-btn" title="切换主题">🌓</button>
+    </div>
+</nav>
+<main class="main-content">
+    <header class="page-header">
+        <h1>10 · 编译系统与内部细节</h1>
+        <p class="subtitle">覆盖：<code>compile</code>, <code>__repr__</code>, <code>__dir__</code>, <code>_get_name</code>, <code>extra_repr</code>, <code>share_memory</code>, <code>_replicate_for_data_parallel</code></p>
+    </header>
+    <div class="diagram-container">
+        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
+            <p style="font-size: 4rem;">📝</p>
+            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
+            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
+        </div>
+        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
+            <h3>📋 本 Notebook 大纲</h3>
+            <h4>Part A: 源码阅读</h4>
+            <ul><li><code>torch.compile</code> 如何在 <code>_call_impl</code> 中接入</li><li><code>__repr__</code> 的递归缩进格式化实现</li><li><code>share_memory</code> 的多进程共享内存机制</li><li><code>_replicate_for_data_parallel</code> 的广播逻辑</li></ul>
+            <h4>Part B: 机制分析</h4>
+            <ul><li>torch.compile 的 JIT 编译与 Module 系统的交互</li><li>extra_repr 的自定义技巧</li><li>DataParallel 的模块复制与 forward 分发</li></ul>
+            <h4>Part C: 动手实验</h4>
+            <ul><li>实验 1：torch.compile 加速对比</li><li>实验 2：自定义 extra_repr 美化打印输出</li><li>实验 3：share_memory 多进程验证</li></ul>
+        </div>
+    </div>
+</main>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<script src="../../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,422 @@
+/* ============================================================
+   PyTorch module.py Deep Dive — 网站样式
+   ============================================================ */
+
+/* ----- CSS Variables (亮色/暗色主题) ----- */
+:root {
+    --bg-primary: #fafafa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f4f8;
+    --text-primary: #1a1a2e;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --border-color: #e2e8f0;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-light: #eff6ff;
+    --nav-bg: #1e293b;
+    --nav-text: #e2e8f0;
+    --nav-hover: #334155;
+    --tab-active-bg: #2563eb;
+    --tab-active-text: #ffffff;
+    --tab-hover-bg: #e2e8f0;
+    --code-bg: #f1f5f9;
+    --code-text: #c7254e;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+    --radius: 8px;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --border-color: #475569;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-light: #1e3a5f;
+    --nav-bg: #0f172a;
+    --nav-text: #e2e8f0;
+    --nav-hover: #1e293b;
+    --tab-active-bg: #3b82f6;
+    --tab-hover-bg: #334155;
+    --code-bg: #334155;
+    --code-text: #f472b6;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
+}
+
+/* ----- Reset & Base ----- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+                 "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+code {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
+}
+
+/* ----- 导航栏 ----- */
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--nav-bg);
+    color: var(--nav-text);
+    padding: 0 1.5rem;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+    flex-wrap: wrap;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.nav-logo {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--nav-text) !important;
+    text-decoration: none !important;
+    letter-spacing: -0.02em;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.nav-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    color: var(--nav-text) !important;
+    text-decoration: none !important;
+    transition: background 0.2s;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.nav-item:hover,
+.nav-item.active {
+    background: var(--nav-hover);
+}
+
+.nav-source {
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.theme-btn {
+    background: none;
+    border: 1px solid var(--nav-text);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    opacity: 0.8;
+}
+.theme-btn:hover {
+    opacity: 1;
+}
+
+/* 下拉菜单 */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-dropbtn {
+    background: none;
+    border: none;
+    color: var(--nav-text);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+.nav-dropbtn:hover {
+    background: var(--nav-hover);
+}
+
+.nav-dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    min-width: 320px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1001;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.nav-dropdown-content a {
+    display: block;
+    padding: 0.55rem 1rem;
+    color: var(--text-primary) !important;
+    font-size: 0.85rem;
+    text-decoration: none !important;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+}
+.nav-dropdown-content a:last-child {
+    border-bottom: none;
+}
+.nav-dropdown-content a:hover {
+    background: var(--accent-light);
+    color: var(--accent) !important;
+}
+
+.nav-dropdown:hover .nav-dropdown-content {
+    display: block;
+}
+
+/* ----- 主体内容 ----- */
+.main-content {
+    flex: 1;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+}
+
+/* 页面头部 */
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.03em;
+}
+
+.page-header h1 code {
+    font-size: 1.2em;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.7;
+}
+
+/* ----- Tab 切换栏 ----- */
+.tab-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.tab-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.tab-btn:hover {
+    background: var(--tab-hover-bg);
+    color: var(--text-primary);
+}
+.tab-btn.active {
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    border-color: var(--tab-active-bg);
+    font-weight: 600;
+}
+
+/* ----- 流程图面板 ----- */
+.diagram-container {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 2rem;
+    min-height: 400px;
+}
+
+.diagram-panel {
+    display: none;
+}
+.diagram-panel.active {
+    display: block;
+}
+
+.diagram-panel h2 {
+    font-size: 1.35rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.diagram-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+}
+
+.diagram-desc strong {
+    color: var(--text-primary);
+}
+
+/* Mermaid SVG 容器 */
+.mermaid {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    padding: 1rem 0;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ----- Notebook 查看器 ----- */
+.notebook-viewer {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-primary);
+    z-index: 500;
+}
+
+.notebook-viewer iframe {
+    border: none;
+}
+
+/* ----- Footer ----- */
+footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+footer a {
+    color: var(--text-muted);
+}
+
+/* ----- 响应式 ----- */
+@media (max-width: 768px) {
+    .navbar {
+        height: auto;
+        padding: 0.5rem 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .nav-item, .nav-dropbtn {
+        font-size: 0.78rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .page-header h1 {
+        font-size: 1.35rem;
+    }
+
+    .tab-bar {
+        gap: 0.25rem;
+    }
+
+    .tab-btn {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.6rem;
+    }
+
+    .diagram-container {
+        padding: 1rem;
+    }
+
+    .main-content {
+        padding: 1rem 0.5rem 2rem;
+    }
+}
+
+/* ----- 打印样式 ----- */
+@media print {
+    .navbar, .tab-bar, footer {
+        display: none;
+    }
+    .diagram-container {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
