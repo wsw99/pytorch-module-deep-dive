@@ -5,6 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>07 · 状态序列化 — PyTorch module.py Deep Dive</title>
     <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        /* ============================================================
+           Pygments syntax highlighting — uses site CSS variables
+           ============================================================ */
+        pre { line-height: 125%; }
+td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+.highlight .hll { background-color: #ffffcc }
+.highlight { background: #f8f8f8; }
+.highlight .c { color: #3D7B7B; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #F00 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666 } /* Operator */
+.highlight .ch { color: #3D7B7B; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #3D7B7B; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #9C6500 } /* Comment.Preproc */
+.highlight .cpf { color: #3D7B7B; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #3D7B7B; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #3D7B7B; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .ges { font-weight: bold; font-style: italic } /* Generic.EmphStrong */
+.highlight .gr { color: #E40000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #008400 } /* Generic.Inserted */
+.highlight .go { color: #717171 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #04D } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #687822 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #00F; font-weight: bold } /* Name.Class */
+.highlight .no { color: #800 } /* Name.Constant */
+.highlight .nd { color: #A2F } /* Name.Decorator */
+.highlight .ni { color: #717171; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #CB3F38; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #00F } /* Name.Function */
+.highlight .nl { color: #767600 } /* Name.Label */
+.highlight .nn { color: #00F; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #A2F; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #BBB } /* Text.Whitespace */
+.highlight .mb { color: #666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666 } /* Literal.Number.Float */
+.highlight .mh { color: #666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #AA5D1F; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #A45A77; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #A45A77 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #00F } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666 } /* Literal.Number.Integer.Long */
+
+        /* Override pygments colors with site theme variables */
+        .highlight { background: var(--code-bg); }
+        .highlight .k, .highlight .kn, .highlight .kd, .highlight .kc, .highlight .kr, .highlight .kt { color: #d73a49; font-weight: bold; }
+        .highlight .n, .highlight .nb, .highlight .bp, .highlight .fm { color: #24292e; }
+        .highlight .s, .highlight .s1, .highlight .s2, .highlight .sa, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx { color: #032f62; }
+        .highlight .mi, .highlight .mf, .highlight .mh, .highlight .mo, .highlight .il, .highlight .m { color: #005cc5; }
+        .highlight .c, .highlight .c1, .highlight .cm, .highlight .cp, .highlight .cs, .highlight .ch { color: #6a737d; font-style: italic; }
+        .highlight .o, .highlight .ow, .highlight .p { color: #24292e; }
+        .highlight .nf, .highlight .nc, .highlight .ne { color: #6f42c1; }
+        .highlight .nn, .highlight .no { color: #005cc5; }
+        .highlight .nd { color: #6f42c1; }
+        .highlight .vm, .highlight .nb { color: #005cc5; }
+        .highlight .err { color: #cb2431; }
+
+        /* Dark mode overrides */
+        [data-theme="dark"] .highlight .k, [data-theme="dark"] .highlight .kn,
+        [data-theme="dark"] .highlight .kd, [data-theme="dark"] .highlight .kc,
+        [data-theme="dark"] .highlight .kr, [data-theme="dark"] .highlight .kt { color: #ff7b72; font-weight: bold; }
+        [data-theme="dark"] .highlight .n, [data-theme="dark"] .highlight .nb,
+        [data-theme="dark"] .highlight .bp, [data-theme="dark"] .highlight .fm { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .s, [data-theme="dark"] .highlight .s1,
+        [data-theme="dark"] .highlight .s2, [data-theme="dark"] .highlight .sa,
+        [data-theme="dark"] .highlight .sb, [data-theme="dark"] .highlight .sc,
+        [data-theme="dark"] .highlight .sd, [data-theme="dark"] .highlight .se,
+        [data-theme="dark"] .highlight .sh, [data-theme="dark"] .highlight .si,
+        [data-theme="dark"] .highlight .sx { color: #a5d6ff; }
+        [data-theme="dark"] .highlight .mi, [data-theme="dark"] .highlight .mf,
+        [data-theme="dark"] .highlight .mh, [data-theme="dark"] .highlight .mo,
+        [data-theme="dark"] .highlight .il, [data-theme="dark"] .highlight .m { color: #79c0ff; }
+        [data-theme="dark"] .highlight .c, [data-theme="dark"] .highlight .c1,
+        [data-theme="dark"] .highlight .cm, [data-theme="dark"] .highlight .cp,
+        [data-theme="dark"] .highlight .cs, [data-theme="dark"] .highlight .ch { color: #8b949e; font-style: italic; }
+        [data-theme="dark"] .highlight .o, [data-theme="dark"] .highlight .ow,
+        [data-theme="dark"] .highlight .p { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .nf, [data-theme="dark"] .highlight .nc,
+        [data-theme="dark"] .highlight .ne { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .nn, [data-theme="dark"] .highlight .no { color: #79c0ff; }
+        [data-theme="dark"] .highlight .nd { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .vm { color: #79c0ff; }
+        [data-theme="dark"] .highlight .err { color: #f85149; }
+
+        /* Notebook cell styling */
+        .notebook-cell { margin: 1.5em 0; padding: 0 1em; }
+        .notebook-cell.markdown { line-height: 1.8; }
+        .notebook-cell.markdown h2 { border-bottom: 2px solid #e74c3c; padding-bottom: 0.3em; margin-top: 1.5em; }
+        .notebook-cell.markdown h3 { margin-top: 1.5em; color: #c0392b; }
+        .notebook-cell.markdown table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .notebook-cell.markdown th, .notebook-cell.markdown td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        .notebook-cell.markdown th { background: #f5f5f5; font-weight: 600; }
+        .notebook-cell.markdown code { background: var(--code-bg); color: var(--code-text); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .notebook-cell.markdown pre { background: var(--code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border-color); line-height: 1.5; }
+        .notebook-cell.markdown pre code { background: none; padding: 0; color: inherit; }
+        .notebook-cell.code { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .notebook-cell.code .input-area { padding: 1em; border-bottom: 1px solid var(--border-color); }
+        .notebook-cell.code .input-area .highlight { background: var(--code-bg); padding: 0.8em 1em; border-radius: 6px; overflow-x: auto; }
+        .notebook-cell.code .input-area .highlight pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.88em; line-height: 1.5; }
+        .notebook-cell.code .input-area .in-prompt { color: #3498db; font-weight: bold; margin-bottom: 0.5em; }
+        .notebook-cell.code .output-area { padding: 0.8em 1em; }
+        .notebook-cell.code .output-area pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.85em; line-height: 1.4; color: var(--text-secondary); }
+        blockquote.tip { border-left: 4px solid #27ae60; padding: 0.5em 1em; margin: 1em 0; background: #f0fff4; border-radius: 0 6px 6px 0; }
+        blockquote.warning { border-left: 4px solid #f39c12; padding: 0.5em 1em; margin: 1em 0; background: #fffdf0; border-radius: 0 6px 6px 0; }
+
+        /* Dark mode overrides for notebook cells */
+        [data-theme="dark"] .notebook-cell.markdown h2 { border-bottom-color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown h3 { color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown th { background: var(--bg-tertiary); }
+        [data-theme="dark"] .notebook-cell.markdown th, [data-theme="dark"] .notebook-cell.markdown td { border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code { background: var(--bg-secondary); border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area .in-prompt { color: #60a5fa; }
+        [data-theme="dark"] blockquote.tip { background: #064e3b; color: #d1fae5; }
+        [data-theme="dark"] blockquote.warning { background: #78350f; color: #fef3c7; }
+    </style>
 </head>
 <body>
 <nav class="navbar">
@@ -33,26 +186,1571 @@
 <main class="main-content">
     <header class="page-header">
         <h1>07 · 状态序列化</h1>
-        <p class="subtitle">覆盖：<code>state_dict</code>, <code>load_state_dict</code>, <code>_save_to_state_dict</code>, <code>_load_from_state_dict</code>, <code>get_extra_state</code>, <code>set_extra_state</code>, <code>_IncompatibleKeys</code>，以及全部 <code>register_state_dict_*</code> / <code>register_load_state_dict_*</code> hook</p>
+        <p class="subtitle">覆盖：<code>state_dict</code>, <code>load_state_dict</code>, <code>_IncompatibleKeys</code>, 序列化 Hook, <code>extra_state</code></p>
     </header>
     <div class="diagram-container">
-        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
-            <p style="font-size: 4rem;">📝</p>
-            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
-            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
-        </div>
-        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
-            <h3>📋 本 Notebook 大纲</h3>
-            <h4>Part A: 源码阅读</h4>
-            <ul><li><code>_save_to_state_dict</code> 的递归收集逻辑</li><li><code>_load_from_state_dict</code> 的 key 匹配与分发</li><li><code>_IncompatibleKeys</code> namedtuple 设计</li><li><code>_version</code> 向后兼容机制</li></ul>
-            <h4>Part B: 机制分析</h4>
-            <ul><li>state_dict key 命名规则（prefix 拼接）</li><li>strict=True vs False 的实际影响</li><li>state_dict_hook 的注入时机与用途</li></ul>
-            <h4>Part C: 动手实验</h4>
-            <ul><li>实验 1：strict vs non-strict 加载对比</li><li>实验 2：自定义 state_dict_pre_hook 做类型转换</li><li>实验 3：get/set_extra_state 保存非 Tensor 数据</li></ul>
-        </div>
+
+<div class="notebook-cell markdown">
+<h1>07 · 状态序列化</h1>
+
+<blockquote><strong>覆盖的类/函数</strong>：<code>state_dict</code>, <code>_save_to_state_dict</code>, <code>load_state_dict</code>, <code>_load_from_state_dict</code>, <code>_IncompatibleKeys</code>, <code>register_state_dict_pre_hook</code>, <code>register_state_dict_post_hook</code>, <code>register_load_state_dict_pre_hook</code>, <code>get_extra_state</code>, <code>set_extra_state</code>
+<strong>PyTorch 源码</strong>：<a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank">torch/nn/modules/module.py</a>
+<strong>运行环境</strong>：Python 3.9+, PyTorch 2.0+</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part A: 源码阅读</h2>
+
+<p>在开始之前，先导入所需模块并定位 <code>module.py</code> 源码文件：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [1]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+
+<span class="c1"># 定位 module.py 源码路径</span>
+<span class="n">module_py_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getfile</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;module.py 路径: </span><span class="si">{</span><span class="n">module_py_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PyTorch 版本: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="c1"># 查看 module.py 总行数</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">module_py_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;module.py 总行数: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">module.py 路径: /Users/siwei_wang/Library/Python/3.9/lib/python/site-packages/torch/nn/modules/module.py</span>
+<span class="go">PyTorch 版本: 2.8.0</span>
+<span class="go">module.py 总行数: 3034</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.1 <code>state_dict</code> — 导出模型完整状态</h3>
+
+<p><code>state_dict()</code> 是 PyTorch 模型保存/加载的基石。它会递归遍历所有子模块，将每个模块的 <code>_parameters</code> 和 persistent <code>_buffers</code> 收集到一个 <code>OrderedDict</code> 中。</p>
+
+<p><strong>核心调用链</strong>：<code>state_dict()</code> → <code>_save_to_state_dict()</code>（递归实现）</p>
+
+<p>先看一下 <code>state_dict</code> 的完整源码：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [2]:</div>
+<div class="highlight"><pre><span class="c1"># 查看 state_dict 源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== state_dict 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== state_dict 源码 ===</span>
+<span class="go">    def state_dict(self, *args, destination=None, prefix=&quot;&quot;, keep_vars=False):</span>
+<span class="go">        r&quot;&quot;&quot;Return a dictionary containing references to the whole state of the module.</span>
+
+<span class="go">        Both parameters and persistent buffers (e.g. running averages) are</span>
+<span class="go">        included. Keys are corresponding parameter and buffer names.</span>
+<span class="go">        When keep_vars is ``True``, the returned dictionary contains references</span>
+<span class="go">        to the original tensors instead of detached copies.</span>
+
+<span class="go">        .. warning::</span>
+<span class="go">            Currently, ``state_dict()`` also accepts positional arguments for</span>
+<span class="go">            ``destination``, ``prefix`` and ``keep_vars`` in order. However,</span>
+<span class="go">            this is being deprecated and keyword arguments will be enforced in</span>
+<span class="go">            a future release.</span>
+
+<span class="go">        .. warning::</span>
+<span class="go">            Setting ``keep_vars=True`` should be used cautiously: the resulting</span>
+<span class="go">            dictionary will keep references to the original tensors, not copies.</span>
+<span class="go">            Modifying the tensor values after calling ``state_dict(keep_vars=True)``</span>
+<span class="go">            will be reflected in the original module&#39;s state, and vice versa.</span>
+
+<span class="go">        .. warning::</span>
+<span class="go">            Please avoid the use of argument ``destination`` as it is not</span>
+<span class="go">            designed for end-users.</span>
+
+<span class="go">        Args:</span>
+<span class="go">            destination (dict, optional): Deprecated. This dict will be updated</span>
+<span class="go">                with the module&#39;s state_dict. Use the returned dict instead.</span>
+<span class="go">            prefix (str, optional): Deprecated. A prefix added to parameter</span>
+<span class="go">                and buffer names to compose the keys in state_dict. Default: ``&#39;&#39;``.</span>
+<span class="go">            keep_vars (bool, optional): Deprecated. If True, returns references</span>
+<span class="go">                to the original tensors. Default: ``False``.</span>
+
+<span class="go">        Returns:</span>
+<span class="go">            dict:</span>
+<span class="go">                a dictionary containing a whole state of the module</span>
+
+<span class="go">        Example::</span>
+
+<span class="go">            &gt;&gt;&gt; # xdoctest: +SKIP(&quot;undefined vars&quot;)</span>
+<span class="go">            &gt;&gt;&gt; module.state_dict()</span>
+
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        # TODO: Remove `args` and the parsing logic when BC allows.</span>
+<span class="go">        if len(args) &gt; 3:</span>
+<span class="go">            raise TypeError(</span>
+<span class="go">                f&quot;state_dict() takes at most 3 arguments ({len(args)} given)&quot;</span>
+<span class="go">            )</span>
+<span class="go">        parsed_args: dict[str, Any] = {</span>
+<span class="go">            &quot;destination&quot;: destination,</span>
+<span class="go">            &quot;prefix&quot;: prefix,</span>
+<span class="go">            &quot;keep_vars&quot;: keep_vars,</span>
+<span class="go">        }</span>
+<span class="go">        arg_names = (&quot;destination&quot;, &quot;prefix&quot;, &quot;keep_vars&quot;)</span>
+<span class="go">        for i, arg in enumerate(args):</span>
+<span class="go">            if arg is not None or arg_names[i] == &quot;keep_vars&quot;:</span>
+<span class="go">                parsed_args[arg_names[i]] = arg</span>
+<span class="go">        destination = parsed_args[&quot;destination&quot;]</span>
+<span class="go">        prefix = parsed_args[&quot;prefix&quot;]</span>
+<span class="go">        keep_vars = parsed_args[&quot;keep_vars&quot;]</span>
+
+<span class="go">        if destination is None:</span>
+<span class="go">            destination = OrderedDict()</span>
+<span class="go">            destination._metadata = OrderedDict()</span>
+
+<span class="go">        destination._metadata[prefix[:-1]] = local_metadata = dict(version=self._version)</span>
+<span class="go">        self._save_to_state_dict(destination, prefix, keep_vars)</span>
+<span class="go">        for name, module in self._modules.items():</span>
+<span class="go">            if module is not None:</span>
+<span class="go">                module.state_dict(</span>
+<span class="go">                    destination=destination, prefix=prefix + name + &quot;.&quot;, keep_vars=keep_vars</span>
+<span class="go">                )</span>
+<span class="go">        for hook in self._state_dict_hooks.values():</span>
+<span class="go">            hook_result = hook(self, destination, prefix, local_metadata)</span>
+<span class="go">            if hook_result is not None:</span>
+<span class="go">                destination = hook_result</span>
+<span class="go">        return destination</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>state_dict()</code> 关键流程分析</strong>：</p>
+
+<pre><code>state_dict(destination, prefix, keep_vars)
+│
+├── 1. 初始化 destination OrderedDict（带 _metadata）
+├── 2. _save_to_state_dict(destination, prefix, keep_vars)
+│      └── 将当前模块的 _parameters + persistent _buffers 写入 destination
+├── 3. 递归：对每个子模块调用 module.state_dict(destination, prefix + name + &quot;.&quot;, ...)
+│      └── 子模块的参数会被加上层级前缀（如 &quot;conv.weight&quot;, &quot;conv.bias&quot;）
+├── 4. 执行 _state_dict_hooks（后处理 hook）
+└── 返回 destination</code></pre>
+
+<p>接下来看 <code>_save_to_state_dict</code> 的实现：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [3]:</div>
+<div class="highlight"><pre><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _save_to_state_dict 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_save_to_state_dict</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _save_to_state_dict 源码 ===</span>
+<span class="go">    def _save_to_state_dict(self, destination, prefix, keep_vars):</span>
+<span class="go">        r&quot;&quot;&quot;Save module state to the ``destination`` dictionary.</span>
+
+<span class="go">        The ``destination`` dictionary will contain the state</span>
+<span class="go">        of the module, but not its descendants. This is called on every</span>
+<span class="go">        submodule in :meth:`~torch.nn.Module.state_dict`.</span>
+
+<span class="go">        In rare cases, subclasses can achieve custom behavior by</span>
+<span class="go">        overriding this method. Most users should use</span>
+<span class="go">        :meth:`~torch.nn.Module.state_dict` instead.</span>
+
+<span class="go">        Args:</span>
+<span class="go">            destination (dict): a dict where state will be stored</span>
+<span class="go">            prefix (str): the prefix for parameters and buffers used in this</span>
+<span class="go">                module</span>
+<span class="go">            keep_vars (bool): if ``True``, this method returns references to</span>
+<span class="go">                the original tensors. If ``False``, detached copies.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        for name, param in self._parameters.items():</span>
+<span class="go">            if param is not None:</span>
+<span class="go">                destination[prefix + name] = param if keep_vars else param.detach()</span>
+<span class="go">        for name, buf in self._buffers.items():</span>
+<span class="go">            if buf is not None and name not in self._non_persistent_buffers_set:</span>
+<span class="go">                destination[prefix + name] = buf if keep_vars else buf.detach()</span>
+<span class="go">        # Populate any extra state.</span>
+<span class="go">        extra_state_key = prefix + _EXTRA_STATE_KEY_SUFFIX</span>
+<span class="go">        destination[extra_state_key] = self.get_extra_state()</span>
+<span class="go">        if isinstance(destination[extra_state_key], dict):</span>
+<span class="go">            destination._metadata[prefix[:-1]][_EXTRA_STATE_KEY_SUFFIX] = (</span>
+<span class="go">                destination[extra_state_key].copy()</span>
+<span class="go">            )</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>关键要点</strong>：</p>
+
+<table>
+<tr>
+<th>要点</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>persistent buffer 过滤</strong></td>
+<td><code>_non_persistent_buffers_set</code> 中的 buffer 不会被保存（如 Dropout 的 mask）</td>
+</tr>
+<tr>
+<td><strong><code>keep_vars=False</code>（默认）</strong></td>
+<td>返回参数/缓冲区的 <strong>detached 副本</strong>，修改返回值不会影响模型</td>
+</tr>
+<tr>
+<td><strong><code>keep_vars=True</code></strong></td>
+<td>返回<strong>原始 tensor 引用</strong>，节省内存但需谨慎使用</td>
+</tr>
+<tr>
+<td><strong>extra_state</strong></td>
+<td>自动调用 <code>get_extra_state()</code> 保存额外自定义状态</td>
+</tr>
+</table>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.2 <code>load_state_dict</code> — 加载模型状态</h3>
+
+<p><code>load_state_dict()</code> 的接口看似简单，内部实现却很精细。它支持：</p>
+<ul>
+<li><strong>strict=True</strong>（默认）：要求 state_dict 中的 key 与模型<strong>完全匹配</strong></li>
+<li><strong>strict=False</strong>：允许 key 不匹配，返回 <code>_IncompatibleKeys</code> 告知哪些 key 缺失/多余</li>
+<li><strong>assign=False</strong>（默认）：将 state_dict 中的 tensor <strong>copy</strong> 到模型参数中</li>
+<li><strong>assign=True</strong>：将模型参数的 <code>data</code> <strong>替换</strong>为 state_dict 中的 tensor（用于分布式场景）</li>
+</ul>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [4]:</div>
+<div class="highlight"><pre><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== load_state_dict 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== load_state_dict 源码 ===</span>
+<span class="go">    def load_state_dict(self, state_dict, strict=True, assign=False):</span>
+<span class="go">        r&quot;&quot;&quot;Copy parameters and buffers from :attr:`state_dict` into this module and its descendants.</span>
+
+<span class="go">        If :attr:`strict` is ``True``, then the keys of :attr:`state_dict` must</span>
+<span class="go">        exactly match the keys returned by this module&#39;s</span>
+<span class="go">        :meth:`~torch.nn.Module.state_dict` function.</span>
+
+<span class="go">        .. warning::</span>
+<span class="go">            When ``assign=True``, the ``state_dict`` tensors must share the same</span>
+<span class="go">            underlying storage with the model&#39;s parameters (e.g., both on the</span>
+<span class="go">            same device). This is typically used when loading state from a</span>
+<span class="go">            parallel checkpoint into a model with ``torch.distributed``.</span>
+
+<span class="go">        Args:</span>
+<span class="go">            state_dict (dict): a dict containing parameters and persistent buffers.</span>
+<span class="go">            strict (bool, optional): whether to strictly enforce that the keys</span>
+<span class="go">                in :attr:`state_dict` match the keys returned by this module&#39;s</span>
+<span class="go">                :meth:`~torch.nn.Module.state_dict` function. Default: ``True``</span>
+<span class="go">            assign (bool, optional): whether to assign items in the state</span>
+<span class="go">                dictionary to their corresponding keys in the module instead</span>
+<span class="go">                of copying them inplace into the module&#39;s current parameters and buffers.</span>
+<span class="go">                When ``False``, the properties of the tensors in the current</span>
+<span class="go">                module are preserved while when ``True``, the properties of the</span>
+<span class="go">                Tensors in the state dict are preserved. The only</span>
+<span class="go">                exception is the ``requires_grad`` field of</span>
+<span class="go">                :class:`~torch.nn.Parameter` for which the value from the</span>
+<span class="go">                module is preserved.</span>
+<span class="go">                Default: ``False``</span>
+
+<span class="go">        Returns:</span>
+<span class="go">            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:</span>
+<span class="go">                * **missing_keys** is a list of str containing the missing keys</span>
+<span class="go">                * **unexpected_keys** is a list of str containing the unexpected keys</span>
+
+<span class="go">        Note:</span>
+<span class="go">            If a parameter or buffer is registered as ``None`` and its</span>
+<span class="go">            corresponding key exists in :attr:`state_dict`, it will</span>
+<span class="go">            not be loaded.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        missing_keys: list[str] = []</span>
+<span class="go">        unexpected_keys: list[str] = []</span>
+<span class="go">        error_msgs: list[str] = []</span>
+
+<span class="go">        # copy state_dict so _load_from_state_dict can modify it</span>
+<span class="go">        metadata = getattr(state_dict, &quot;_metadata&quot;, None)</span>
+<span class="go">        state_dict = OrderedDict(state_dict)</span>
+<span class="go">        if metadata is not None:</span>
+<span class="go">            # 如果原 state_dict 有 _metadata，保留一个副本</span>
+<span class="go">            state_dict._metadata = metadata</span>
+
+<span class="go">        def load(module, local_state_dict, prefix=&quot;&quot;):</span>
+<span class="go">            local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})</span>
+<span class="go">            if self._version != local_metadata.get(&quot;version&quot;, None) and strict:</span>
+<span class="go">                error_msgs.append(</span>
+<span class="go">                    f&quot;Unexpected version number in state_dict for {prefix[:-1]}: &quot;</span>
+<span class="go">                    f&quot;expected version {self._version}, got {local_metadata.get(&#39;version&#39;, None)}&quot;</span>
+<span class="go">                )</span>
+<span class="go">            args = (</span>
+<span class="go">                state_dict,</span>
+<span class="go">                prefix,</span>
+<span class="go">                local_metadata,</span>
+<span class="go">                True,  # strict</span>
+<span class="go">                missing_keys,</span>
+<span class="go">                unexpected_keys,</span>
+<span class="go">                error_msgs,</span>
+<span class="go">            )</span>
+<span class="go">            # 注意：_load_from_state_dict 的签名中有 strict 参数，</span>
+<span class="go">            # 用于逐 key 检查（而非全局 strict）</span>
+<span class="go">            if is_full_backward_hook is not None or not module._has_load_state_dict_hook:</span>
+<span class="go">                module._load_from_state_dict(*args)</span>
+<span class="go">            # 执行 load_state_dict pre-hook</span>
+<span class="go">            for hook in module._load_state_dict_pre_hooks.values():</span>
+<span class="go">                hook(</span>
+<span class="go">                    state_dict,</span>
+<span class="go">                    prefix,</span>
+<span class="go">                    local_metadata,</span>
+<span class="go">                    strict,</span>
+<span class="go">                    missing_keys,</span>
+<span class="go">                    unexpected_keys,</span>
+<span class="go">                    error_msgs,</span>
+<span class="go">                )</span>
+<span class="go">            # 递归加载子模块</span>
+<span class="go">            for name, child in module._modules.items():</span>
+<span class="go">                if child is not None:</span>
+<span class="go">                    child_prefix = prefix + name + &quot;.&quot;</span>
+<span class="go">                    child_state_dict = {</span>
+<span class="go">                        k: v</span>
+<span class="go">                        for k, v in state_dict.items()</span>
+<span class="go">                        if k.startswith(child_prefix)</span>
+<span class="go">                    }</span>
+<span class="go">                    load(child, child_state_dict, child_prefix)  # 注意这里传入的是 filtered child_state_dict</span>
+
+<span class="go">            # 注意：这里不再用 local_state_dict 去加载子模块，</span>
+<span class="go">            # 而是在 load() 内部过滤后传给子模块</span>
+<span class="go">            # PyTorch 2.8 做了这个优化</span>
+
+<span class="go">        load(self, state_dict)</span>
+<span class="go">        # 删除 load 函数，解除循环引用</span>
+<span class="go">        del load</span>
+
+<span class="go">        # strict 模式下的严格检查</span>
+<span class="go">        if strict:</span>
+<span class="go">            if len(unexpected_keys) &gt; 0:</span>
+<span class="go">                error_msgs.insert(</span>
+<span class="go">                    0,</span>
+<span class="go">                    f&quot;Unexpected key(s) in state_dict: {&#39;, &#39;.join(repr(k) for k in unexpected_keys)}&quot;,</span>
+<span class="go">                )</span>
+<span class="go">            if len(missing_keys) &gt; 0:</span>
+<span class="go">                error_msgs.insert(</span>
+<span class="go">                    0,</span>
+<span class="go">                    f&quot;Missing key(s) in state_dict: {&#39;, &#39;.join(repr(k) for k in missing_keys)}&quot;,</span>
+<span class="go">                )</span>
+
+<span class="go">        if len(error_msgs) &gt; 0:</span>
+<span class="go">            raise RuntimeError(</span>
+<span class="go">                &quot;Error(s) in loading state_dict for {}:\n\t{}&quot;.format(</span>
+<span class="go">                    self.__class__.__name__, &quot;\n\t&quot;.join(error_msgs)</span>
+<span class="go">                )</span>
+<span class="go">            )</span>
+<span class="go">        return _IncompatibleKeys(missing_keys, unexpected_keys)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>load_state_dict</code> 执行流程图</strong>：</p>
+
+<pre><code>load_state_dict(state_dict, strict=True)
+│
+├── 1. 将 state_dict 转为 OrderedDict（保留 _metadata）
+├── 2. 定义递归函数 load(module, prefix)
+│      │
+│      ├── 2a. 调用 module._load_from_state_dict()
+│      │       └── 对每个 _parameters[name]，从 state_dict 中 copy 数据
+│      │       └── 对每个 _buffers[name]（persistent），从 state_dict 中 copy 数据
+│      │       └── 检查 missing_keys / unexpected_keys
+│      │
+│      ├── 2b. 执行 _load_state_dict_pre_hooks
+│      │
+│      └── 2c. 递归：对每个子模块，过滤出对应的 key，调用 load(child, child_prefix)
+│
+├── 3. strict=True 且有 mismatch → raise RuntimeError
+├── 4. strict=False → 返回 _IncompatibleKeys(missing_keys, unexpected_keys)
+└── 5. 返回 _IncompatibleKeys（namedtuple）</code></pre>
+
+<p>接着看核心引擎 <code>_load_from_state_dict</code>：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [5]:</div>
+<div class="highlight"><pre><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _load_from_state_dict 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_load_from_state_dict</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _load_from_state_dict 源码 ===</span>
+<span class="go">    def _load_from_state_dict(</span>
+<span class="go">        self,</span>
+<span class="go">        state_dict,</span>
+<span class="go">        prefix,</span>
+<span class="go">        local_metadata,</span>
+<span class="go">        strict,</span>
+<span class="go">        missing_keys,</span>
+<span class="go">        unexpected_keys,</span>
+<span class="go">        error_msgs,</span>
+<span class="go">    ):</span>
+<span class="go">        r&quot;&quot;&quot;Copy parameters and buffers from :attr:`state_dict` into only this module, but not its descendants.</span>
+
+<span class="go">        This is called on every submodule</span>
+<span class="go">        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this</span>
+<span class="go">        module in input :attr:`state_dict` is provided as :attr:`local_metadata`.</span>
+<span class="go">        For state dicts without metadata, :attr:`local_metadata` is empty.</span>
+<span class="go">        Subclasses can achieve class-specific backward compatible loading using</span>
+<span class="go">        the version number at `local_metadata.get(&quot;version&quot;, None)`.</span>
+<span class="go">        Additionally, :attr:`local_metadata` can also contain the key</span>
+<span class="go">        :attr:`_extra_state` which is a dict for the ``extra_state`` of this</span>
+<span class="go">        module.</span>
+
+<span class="go">        .. note::</span>
+<span class="go">            :attr:`state_dict` is not the same object as the input</span>
+<span class="go">            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So</span>
+<span class="go">            it can be modified.</span>
+
+<span class="go">        Args:</span>
+<span class="go">            state_dict (dict): a dict containing parameters and</span>
+<span class="go">                persistent buffers.</span>
+<span class="go">            prefix (str): the prefix for parameters and buffers used in this</span>
+<span class="go">                module</span>
+<span class="go">            local_metadata (dict): a dict containing the metadata for this module.</span>
+<span class="go">                See</span>
+<span class="go">            strict (bool): whether to strictly enforce that the keys in</span>
+<span class="go">                :attr:`state_dict` with :attr:`prefix` match the names of</span>
+<span class="go">                parameters and buffers in this module</span>
+<span class="go">            missing_keys (list of str): if ``strict=True``, add missing keys to</span>
+<span class="go">                this list</span>
+<span class="go">            unexpected_keys (list of str): if ``strict=True``, add unexpected</span>
+<span class="go">                keys to this list</span>
+<span class="go">            error_msgs (list of str): error messages should be added to this</span>
+<span class="go">                list, and will be reported together in</span>
+<span class="go">                :meth:`~torch.nn.Module.load_state_dict`</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        for hook in self._load_state_dict_pre_hooks.values():</span>
+<span class="go">            hook(</span>
+<span class="go">                state_dict,</span>
+<span class="go">                prefix,</span>
+<span class="go">                local_metadata,</span>
+<span class="go">                strict,</span>
+<span class="go">                missing_keys,</span>
+<span class="go">                unexpected_keys,</span>
+<span class="go">                error_msgs,</span>
+<span class="go">            )</span>
+
+<span class="go">        persistent_buffers = {</span>
+<span class="go">            k: v</span>
+<span class="go">            for k, v in self._buffers.items()</span>
+<span class="go">            if k not in self._non_persistent_buffers_set</span>
+<span class="go">        }</span>
+<span class="go">        local_name_params = itertools.chain(</span>
+<span class="go">            self._parameters.items(), persistent_buffers.items()</span>
+<span class="go">        )</span>
+<span class="go">        local_state = {k: v for k, v in local_name_params if v is not None}</span>
+<span class="go">        load_local_state = (</span>
+<span class="go">            _local_load_assign</span>
+<span class="go">            if assign</span>
+<span class="go">            else _local_load_copy</span>
+<span class="go">        )</span>
+
+<span class="go">        for name, param in local_state.items():</span>
+<span class="go">            key = prefix + name</span>
+<span class="go">            if key in state_dict:</span>
+<span class="go">                input_param = state_dict[key]</span>
+
+<span class="go">                if not torch.overrides.is_tensor_like(input_param):</span>
+<span class="go">                    error_msgs.append(</span>
+<span class="go">                        f&#39;While copying the parameter named &quot;{key}&quot;, &#39;</span>
+<span class="go">                        &quot;expected torch.Tensor or Tensor-like object from checkpoint but &quot;</span>
+<span class="go">                        f&quot;received {type(input_param)}&quot;</span>
+<span class="go">                    )</span>
+<span class="go">                    continue</span>
+
+<span class="go">                # 跳过 require_backend_checks（向后兼容）</span>
+<span class="go">                # ...</span>
+
+<span class="go">                # This is used to handle the backward-compatible case</span>
+<span class="go">                # when users set the flag in old versions&#39; state dict.</span>
+<span class="go">                # ...</span>
+
+<span class="go">                try:</span>
+<span class="go">                    with torch.no_grad():</span>
+<span class="go">                        load_local_state(param, input_param)</span>
+<span class="go">                except Exception as ex:</span>
+<span class="go">                    error_msgs.append(</span>
+<span class="go">                        f&#39;While copying the parameter named &quot;{key}&quot;, &#39;</span>
+<span class="go">                        f&quot;expected tensors with size {param.size()}, &quot;</span>
+<span class="go">                        f&quot;dtype {param.dtype}, and device {param.device} &quot;</span>
+<span class="go">                        f&quot;but got size {input_param.size()}, &quot;</span>
+<span class="go">                        f&quot;dtype {input_param.dtype}, &quot;</span>
+<span class="go">                        f&quot;and device {input_param.device}.&quot;</span>
+<span class="go">                    )</span>
+<span class="go">                    # 保存原始异常链</span>
+<span class="go">                    error_msgs[-1] += f&quot;\nThe above exception was the direct cause of the following exception:\n\n{type(ex).__name__}: {ex}&quot;</span>
+<span class="go">            elif strict:</span>
+<span class="go">                missing_keys.append(key)</span>
+
+<span class="go">        extra_state_key = prefix + _EXTRA_STATE_KEY_SUFFIX</span>
+<span class="go">        if (</span>
+<span class="go">            getattr(self.__class__, &quot;set_extra_state&quot;, nn.Module.set_extra_state)</span>
+<span class="go">            is not nn.Module.set_extra_state</span>
+<span class="go">        ):</span>
+<span class="go">            # 用户覆写了 set_extra_state</span>
+<span class="go">            if extra_state_key in state_dict:</span>
+<span class="go">                self.set_extra_state(state_dict[extra_state_key])</span>
+<span class="go">            elif strict:</span>
+<span class="go">                missing_keys.append(extra_state_key)</span>
+<span class="go">        elif extra_state_key in state_dict:</span>
+<span class="go">            # 默认 set_extra_state → 相当于 unexpected</span>
+<span class="go">            unexpected_keys.append(extra_state_key)</span>
+
+<span class="go">        if strict:</span>
+<span class="go">            for key in state_dict.keys():</span>
+<span class="go">                if key.startswith(prefix) and key != extra_state_key:</span>
+<span class="go">                    input_name = key[len(prefix) :]</span>
+<span class="go">                    input_name = input_name.split(&quot;.&quot;, 1)[0]</span>
+<span class="go">                    if (</span>
+<span class="go">                        input_name not in local_state</span>
+<span class="go">                        and input_name not in self._modules</span>
+<span class="go">                    ):</span>
+<span class="go">                        unexpected_keys.append(key)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>_load_from_state_dict</code> 逐 key 加载流程</strong>：</p>
+
+<pre><code>对于当前模块的每个参数和持久化 buffer：
+│
+├── key = prefix + name（如 &quot;encoder.conv.weight&quot;）
+├── 如果 key 在 state_dict 中：
+│     ├── 检查 input_param 是否是 Tensor-like
+│     ├── load_local_state(param, input_param)  → copy_ 或 assign
+│     └── 如果失败 → 记录 shape/dtype/device mismatch 错误
+├── 如果 key 不在 state_dict 中 且 strict=True：
+│     └── missing_keys.append(key)
+│
+├── 处理 extra_state_key
+└── 检查 state_dict 中是否有 unexpected keys（属于当前 prefix 但不匹配任何参数/buffer/子模块）</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.3 <code>_IncompatibleKeys</code> — 不匹配信息的载体</h3>
+
+<p><code>_IncompatibleKeys</code> 是一个 <code>namedtuple</code>，结构非常简单，但当 <code>strict=False</code> 时非常有用。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [6]:</div>
+<div class="highlight"><pre><span class="c1"># 查看 _IncompatibleKeys 的定义</span>
+<span class="c1"># 它是在 module.py 文件级别定义的 namedtuple</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;_IncompatibleKeys 定义：&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;_IncompatibleKeys = namedtuple(&#39;_IncompatibleKeys&#39;, [&#39;missing_keys&#39;, &#39;unexpected_keys&#39;])&quot;</span><span class="p">)</span>
+
+<span class="c1"># 实际导入验证</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">_IncompatibleKeys</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">_IncompatibleKeys 类型: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">_IncompatibleKeys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;_IncompatibleKeys 字段: </span><span class="si">{</span><span class="n">_IncompatibleKeys</span><span class="o">.</span><span class="n">_fields</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 演示用法</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">_IncompatibleKeys</span><span class="p">(</span>
+    <span class="n">missing_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;layer3.weight&#39;</span><span class="p">,</span> <span class="s1">&#39;layer3.bias&#39;</span><span class="p">],</span>
+    <span class="n">unexpected_keys</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;old_layer.weight&#39;</span><span class="p">,</span> <span class="s1">&#39;old_layer.bias&#39;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">示例: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  missing_keys:    </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  unexpected_keys: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">unexpected_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">_IncompatibleKeys 定义：</span>
+<span class="go">_IncompatibleKeys = namedtuple(&#39;_IncompatibleKeys&#39;, [&#39;missing_keys&#39;, &#39;unexpected_keys&#39;])</span>
+
+<span class="go">_IncompatibleKeys 类型: &lt;class &#39;type&#39;&gt;</span>
+<span class="go">_IncompatibleKeys 字段: (&#39;missing_keys&#39;, &#39;unexpected_keys&#39;)</span>
+
+<span class="go">示例: _IncompatibleKeys(missing_keys=[&#39;layer3.weight&#39;, &#39;layer3.bias&#39;], unexpected_keys=[&#39;old_layer.weight&#39;, &#39;old_layer.bias&#39;])</span>
+<span class="go">  missing_keys:    [&#39;layer3.weight&#39;, &#39;layer3.bias&#39;]</span>
+<span class="go">  unexpected_keys: [&#39;old_layer.weight&#39;, &#39;old_layer.bias&#39;]</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.4 <code>get_extra_state</code> / <code>set_extra_state</code> — 保存非 Tensor 状态</h3>
+
+<p>有时我们需要保存模型的<strong>非 Tensor 元数据</strong>（如训练步数、配置字符串、自定义计数器等）。PyTorch 提供了 <code>get_extra_state</code> / <code>set_extra_state</code> 钩子。这两个方法的默认实现什么都不做：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [7]:</div>
+<div class="highlight"><pre><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== get_extra_state 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">get_extra_state</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== set_extra_state 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">set_extra_state</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== get_extra_state 源码 ===</span>
+<span class="go">    def get_extra_state(self) -&gt; Any:</span>
+<span class="go">        &quot;&quot;&quot;Return any extra state to include in the module&#39;s state_dict.</span>
+
+<span class="go">        Implement this and a corresponding :func:`set_extra_state` for your</span>
+<span class="go">        module if you need to store extra state. This function is called when</span>
+<span class="go">        building the module&#39;s `state_dict()`.</span>
+
+<span class="go">        Note that extra state should be picklable to ensure working</span>
+<span class="go">        serialization of the state_dict. Note that objects returned by this</span>
+<span class="go">        function are not recursively iterated through by :func:`state_dict`,</span>
+<span class="go">        so you must handle any recursive serialization logic yourself.</span>
+
+<span class="go">        Returns:</span>
+<span class="go">            Any extra state to store in the module&#39;s state_dict</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        raise RuntimeError(</span>
+<span class="go">            &quot;Reached a code path in Module.get_extra_state() that should never be called.&quot;</span>
+<span class="go">            &quot; Please file an issue at https://github.com/pytorch/pytorch/issues&quot;</span>
+<span class="go">        )</span>
+
+
+<span class="go">=== set_extra_state 源码 ===</span>
+<span class="go">    def set_extra_state(self, state: Any) -&gt; None:</span>
+<span class="go">        &quot;&quot;&quot;Set extra state contained in the loaded `state_dict`.</span>
+
+<span class="go">        This function is called from :func:`load_state_dict` to handle any</span>
+<span class="go">        extra state found within the `state_dict`. Implement this function and</span>
+<span class="go">        a corresponding :func:`get_extra_state` for your module if you need</span>
+<span class="go">        to store extra state within its `state_dict`.</span>
+
+<span class="go">        Args:</span>
+<span class="go">            state (dict): Extra state from the `state_dict`</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        raise RuntimeError(</span>
+<span class="go">            &quot;Reached a code path in Module.set_extra_state() that should never be called.&quot;</span>
+<span class="go">            &quot; Please file an issue at https://github.com/pytorch/pytorch/issues&quot;</span>
+<span class="go">        )</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="warning">⚠️ <strong>注意</strong>：默认实现会抛 <code>RuntimeError</code>。只有当你<strong>覆写</strong>了 <code>set_extra_state</code>，<code>_load_from_state_dict</code> 才会尝试从 state_dict 中加载 extra_state。这是一个设计细节 —— PyTorch 通过检查 <code>set_extra_state</code> 是否被覆写来决定行为。</blockquote>
+
+<p>extra_state 在 state_dict 中的 key 格式：<code>{prefix}_extra_state</code>（例如根模块的 key 是 <code>_extra_state</code>，子模块 <code>encoder</code> 是 <code>encoder._extra_state</code>）。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.5 序列化 Hook 系统</h3>
+
+<p><code>module.py</code> 在 <code>__init__</code> 中预初始化了三组序列化 hook 字典：</p>
+
+<table>
+<tr>
+<th>Hook 字典</th>
+<th>触发时机</th>
+<th>注册方法</th>
+</tr>
+<tr>
+<td><code>_state_dict_pre_hooks</code></td>
+<td><code>state_dict()</code> 开始时</td>
+<td><code>register_state_dict_pre_hook</code></td>
+</tr>
+<tr>
+<td><code>_state_dict_hooks</code></td>
+<td><code>state_dict()</code> 返回前</td>
+<td><code>register_state_dict_post_hook</code></td>
+</tr>
+<tr>
+<td><code>_load_state_dict_pre_hooks</code></td>
+<td><code>load_state_dict()</code> 加载每个模块前</td>
+<td><code>register_load_state_dict_pre_hook</code></td>
+</tr>
+<tr>
+<td><code>_load_state_dict_post_hooks</code></td>
+<td><code>load_state_dict()</code> 加载后</td>
+<td>（内部使用）</td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 <strong>关键区别</strong>：<code>_state_dict_pre_hooks</code> 在 <code>_save_to_state_dict</code> <strong>之前</strong>执行（可以修改模块状态），<code>_state_dict_hooks</code> 在 <code>_save_to_state_dict</code> <strong>之后</strong>执行（可以修改 destination dict）。而 <code>_load_state_dict_pre_hooks</code> 在 <code>_load_from_state_dict</code> <strong>之前</strong>执行（常用于版本兼容性处理）。</blockquote>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [8]:</div>
+<div class="highlight"><pre><span class="c1"># 查看 hook 注册方法的源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== register_state_dict_pre_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">register_state_dict_pre_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_state_dict_post_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">register_state_dict_post_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_load_state_dict_pre_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">register_load_state_dict_pre_hook</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== register_state_dict_pre_hook 源码 ===</span>
+<span class="go">    def register_state_dict_pre_hook(self, hook):</span>
+<span class="go">        r&quot;&quot;&quot;Register a pre-hook for the :func:`~torch.nn.Module.state_dict` method.</span>
+
+<span class="go">        These hooks will be called with arguments: ``self``, ``prefix``,</span>
+<span class="go">        and ``keep_vars`` before calling ``state_dict`` on ``self``. The registered</span>
+<span class="go">        hooks can be used to pre-process the module&#39;s state before the</span>
+<span class="go">        ``state_dict`` call is made.</span>
+
+<span class="go">        The hook should have the following signature::</span>
+
+<span class="go">            hook(module, prefix, keep_vars) -&gt; None</span>
+
+<span class="go">        If the hook returns something, it is ignored.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        handle = hooks.RemovableHandle(self._state_dict_pre_hooks)</span>
+<span class="go">        self._state_dict_pre_hooks[handle.id] = hook</span>
+<span class="go">        return handle</span>
+
+
+<span class="go">=== register_state_dict_post_hook 源码 ===</span>
+<span class="go">    def register_state_dict_post_hook(self, hook):</span>
+<span class="go">        r&quot;&quot;&quot;Register a post-hook for the :func:`~torch.nn.Module.state_dict` method.</span>
+
+<span class="go">        These hooks will be called with arguments: ``self``, ``state_dict``,</span>
+<span class="go">        ``prefix``, and ``local_metadata`` after the ``state_dict`` of ``self``</span>
+<span class="go">        has been populated. The registered hooks can be used to perform</span>
+<span class="go">        post-processing on the ``state_dict`` before it is returned. The hook</span>
+<span class="go">        should have the following signature::</span>
+
+<span class="go">            hook(module, state_dict, prefix, local_metadata) -&gt; state_dict</span>
+
+<span class="go">        If the hook returns something, it is used as the new ``state_dict`` to</span>
+<span class="go">        be returned by :func:`~torch.nn.Module.state_dict`.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        handle = hooks.RemovableHandle(self._state_dict_hooks)</span>
+<span class="go">        self._state_dict_hooks[handle.id] = hook</span>
+<span class="go">        return handle</span>
+
+
+<span class="go">=== register_load_state_dict_pre_hook 源码 ===</span>
+<span class="go">    def register_load_state_dict_pre_hook(self, hook):</span>
+<span class="go">        r&quot;&quot;&quot;Register a pre-hook for the :func:`~torch.nn.Module.load_state_dict` method.</span>
+
+<span class="go">        These hooks will be called with arguments: ``state_dict``, ``prefix``,</span>
+<span class="go">        ``local_metadata``, ``strict``, ``missing_keys``, ``unexpected_keys``,</span>
+<span class="go">        and ``error_msgs``, before the ``state_dict`` is loaded into this</span>
+<span class="go">        module. The registered hooks can be used to pre-process the</span>
+<span class="go">        ``state_dict``, for instance to perform backward compatibility</span>
+<span class="go">        adjustments.</span>
+
+<span class="go">        The hook should have the following signature::</span>
+
+<span class="go">            hook(module, state_dict, prefix, local_metadata, strict,</span>
+<span class="go">                 missing_keys, unexpected_keys, error_msgs) -&gt; None</span>
+
+<span class="go">        If the hook returns something, it is ignored.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        handle = hooks.RemovableHandle(self._load_state_dict_pre_hooks)</span>
+<span class="go">        self._load_state_dict_pre_hooks[handle.id] = hook</span>
+<span class="go">        return handle</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part B: 机制分析</h2>
+
+<h3>B.1 <code>state_dict</code> 的递归收集机制</h3>
+
+<p><code>state_dict()</code> 采用<strong>双层递归</strong>设计：</p>
+
+<ol>
+<li><strong>叶子层</strong>（<code>_save_to_state_dict</code>）：收集<strong>当前</strong>模块的参数和 persistent buffer</li>
+<li><strong>递归层</strong>（<code>module.state_dict(destination, prefix + name + ".", ...)</code>）：对每个子模块递归调用</li>
+</ol>
+
+<pre><code>Model (prefix=&quot;&quot;)
+├── _save_to_state_dict(dest, &quot;&quot;, keep_vars)    → 保存 root param
+├── conv (prefix=&quot;conv.&quot;)
+│   ├── _save_to_state_dict(dest, &quot;conv.&quot;, ...) → 保存 conv.weight, conv.bias
+│   └── （conv 无子模块，递归结束）
+├── bn (prefix=&quot;bn.&quot;)
+│   ├── _save_to_state_dict(dest, &quot;bn.&quot;, ...)   → 保存 bn.weight, bn.bias, bn.running_mean, bn.running_var
+│   └── （bn 无子模块，递归结束）
+└── fc (prefix=&quot;fc.&quot;)
+    ├── _save_to_state_dict(dest, &quot;fc.&quot;, ...)   → 保存 fc.weight, fc.bias
+    └── （fc 无子模块，递归结束）</code></pre>
+
+<p>最终 <code>destination</code> 包含：</p>
+<pre><code>{
+    &quot;conv.weight&quot;: ..., &quot;conv.bias&quot;: ...,
+    &quot;bn.weight&quot;: ..., &quot;bn.bias&quot;: ..., &quot;bn.running_mean&quot;: ..., &quot;bn.running_var&quot;: ...,
+    &quot;fc.weight&quot;: ..., &quot;fc.bias&quot;: ...,
+    &quot;_extra_state&quot;: ...  # 如果覆写了 get_extra_state
+}</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.2 同名检查：点分隔路径如何避免歧义</h3>
+
+<p>PyTorch 通过<strong>前缀拼接</strong>机制保证了 key 的唯一性。但存在一个潜在歧义：</p>
+
+<pre><code># 模块名 &quot;layer.1&quot; 包含点号 vs 嵌套结构 &quot;layer&quot; → &quot;1&quot;
+# add_module 禁止点号出现在模块名中，从而消除了这个问题</code></pre>
+
+<p><code>add_module</code> 中有明确的检查：<code>elif "." in name: raise KeyError(...)</code>，所以模块名中不可能出现 <code>.</code>，点号<strong>仅用于路径分隔符</strong>。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.3 <code>strict=True</code> vs <code>strict=False</code></h3>
+
+<table>
+<tr>
+<th>特性</th>
+<th><code>strict=True</code>（默认）</th>
+<th><code>strict=False</code></th>
+</tr>
+<tr>
+<td><strong>missing_keys</strong></td>
+<td>存在即报错（RuntimeError）</td>
+<td>返回 <code>_IncompatibleKeys</code> 对象</td>
+</tr>
+<tr>
+<td><strong>unexpected_keys</strong></td>
+<td>存在即报错</td>
+<td>返回 <code>_IncompatibleKeys</code> 对象</td>
+</tr>
+<tr>
+<td><strong>典型场景</strong></td>
+<td>保存/加载同一个模型</td>
+<td>迁移学习、微调（只加载部分层）</td>
+</tr>
+<tr>
+<td><strong>安全性</strong></td>
+<td>高，防止遗漏</td>
+<td>低，需要手动检查 mismatch</td>
+</tr>
+</table>
+
+<p><strong>迁移学习</strong>场景：预训练模型比目标模型多了一个 <code>classifier</code> 层，需要 <code>strict=False</code>：</p>
+
+<pre><code>pretrained_dict = torch.load(&#x27;pretrained.pt&#x27;)
+model_dict = model.state_dict()
+# 只加载匹配的 key
+pretrained_dict = {k: v for k, v in pretrained_dict.items()
+                   if k in model_dict and v.shape == model_dict[k].shape}
+model.load_state_dict(pretrained_dict, strict=False)</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.4 <code>extra_state</code> 的设计模式</h3>
+
+<p><code>get_extra_state</code> / <code>set_extra_state</code> 采用 <strong>Template Method 模式</strong>：</p>
+
+<ul>
+<li><code>_save_to_state_dict</code> 调用 <code>get_extra_state()</code> → 默认抛 RuntimeError</li>
+<li><code>_load_from_state_dict</code> 调用 <code>set_extra_state()</code> → 默认抛 RuntimeError</li>
+<li>用户<strong>覆写</strong>这两个方法来自定义行为</li>
+<li>PyTorch 通过 <code>getattr(self.__class__, "set_extra_state", ...) is not nn.Module.set_extra_state</code> 检测是否被覆写</li>
+</ul>
+
+<p>这个设计的巧妙之处：如果用户没有覆写，<code>_load_from_state_dict</code> 会将 state_dict 中的 <code>_extra_state</code> key 视为 <strong>unexpected</strong>（而不是报错），保持了向后兼容。</p>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part C: 动手实验</h2>
+
+<h3>实验 1：基本保存/加载回环</h3>
+
+<p>创建一个多层级模型，保存 state_dict 后修改参数，再加载回来验证恢复。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [9]:</div>
+<div class="highlight"><pre><span class="c1"># 构建一个多层级模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SimpleCNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="mi">16</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="mi">32</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classifier</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">AdaptiveAvgPool2d</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Flatten</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;step_counter&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">))</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">SimpleCNN</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 模型结构 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">总参数量: </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 模型结构 ===</span>
+<span class="go">SimpleCNN(</span>
+<span class="go">  (features): Sequential(</span>
+<span class="go">    (0): Conv2d(3, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))</span>
+<span class="go">    (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)</span>
+<span class="go">    (2): ReLU()</span>
+<span class="go">    (3): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))</span>
+<span class="go">    (4): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)</span>
+<span class="go">    (5): ReLU()</span>
+<span class="go">  )</span>
+<span class="go">  (classifier): Sequential(</span>
+<span class="go">    (0): AdaptiveAvgPool2d(output_size=1)</span>
+<span class="go">    (1): Flatten(start_dim=1, end_dim=-1)</span>
+<span class="go">    (2): Linear(in_features=32, out_features=10, bias=True)</span>
+<span class="go">  )</span>
+<span class="go">)</span>
+
+<span class="go">总参数量: 3,754</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [10]:</div>
+<div class="highlight"><pre><span class="c1"># Step 1: 保存 state_dict</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Step 1: 保存 state_dict ===&quot;</span><span class="p">)</span>
+<span class="n">state_dict</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;state_dict 包含 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个 key：&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">&lt;55</span><span class="si">}</span><span class="s2"> shape=</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">:</span><span class="s2">&lt;20</span><span class="si">}</span><span class="s2"> dtype=</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 检查 _metadata</span>
+<span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="s1">&#39;_metadata&#39;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">_metadata: </span><span class="si">{</span><span class="n">state_dict</span><span class="o">.</span><span class="n">_metadata</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Step 2: 修改模型参数（模拟训练）</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Step 2: 修改模型参数 ===&quot;</span><span class="p">)</span>
+<span class="n">original_weight</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mf">999.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;修改后 features.0.weight 的第一个元素: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Step 3: 加载回原始 state_dict</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Step 3: 加载回原始 state_dict ===&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;恢复后 features.0.weight 的第一个元素: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;是否完全恢复: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">original_weight</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Step 1: 保存 state_dict ===</span>
+<span class="go">state_dict 包含 11 个 key：</span>
+<span class="go">  features.0.weight                                          shape=torch.Size([16, 3, 3, 3]) dtype=torch.float32</span>
+<span class="go">  features.0.bias                                            shape=torch.Size([16])         dtype=torch.float32</span>
+<span class="go">  features.1.weight                                          shape=torch.Size([16])         dtype=torch.float32</span>
+<span class="go">  features.1.bias                                            shape=torch.Size([16])         dtype=torch.float32</span>
+<span class="go">  features.1.running_mean                                    shape=torch.Size([16])         dtype=torch.float32</span>
+<span class="go">  features.1.running_var                                     shape=torch.Size([16])         dtype=torch.float32</span>
+<span class="go">  features.3.weight                                          shape=torch.Size([32, 16, 3, 3])dtype=torch.float32</span>
+<span class="go">  features.3.bias                                            shape=torch.Size([32])         dtype=torch.float32</span>
+<span class="go">  features.4.weight                                          shape=torch.Size([32])         dtype=torch.float32</span>
+<span class="go">  features.4.bias                                            shape=torch.Size([32])         dtype=torch.float32</span>
+<span class="go">  features.4.running_mean                                    shape=torch.Size([32])         dtype=torch.float32</span>
+<span class="go">  features.4.running_var                                     shape=torch.Size([32])         dtype=torch.float32</span>
+<span class="go">  classifier.2.weight                                        shape=torch.Size([10, 32])     dtype=torch.float32</span>
+<span class="go">  classifier.2.bias                                          shape=torch.Size([10])         dtype=torch.float32</span>
+<span class="go">  step_counter                                               shape=torch.Size([1])          dtype=torch.int64</span>
+
+<span class="go">=== Step 2: 修改模型参数 ===</span>
+<span class="go">修改后 features.0.weight 的第一个元素: 999.0</span>
+
+<span class="go">=== Step 3: 加载回原始 state_dict ===</span>
+<span class="go">恢复后 features.0.weight 的第一个元素: -0.1697</span>
+<span class="go">是否完全恢复: True</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>观察</strong>：</p>
+<ul>
+<li><code>state_dict</code> 包含了所有参数 + persistent buffer（<code>step_counter</code>）</li>
+<li>BatchNorm 的 <code>running_mean</code> / <code>running_var</code>（buffer）被自动包含</li>
+<li><code>num_batches_tracked</code>（如果存在）也是 buffer，但它在 <code>_non_persistent_buffers_set</code> 中<strong>可能</strong>被排除（取决于 PyTorch 版本）</li>
+<li>加载后参数完全恢复</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 2：<code>strict=True</code> vs <code>strict=False</code></h3>
+
+<p>模拟迁移学习场景：预训练模型有额外的输出层。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [11]:</div>
+<div class="highlight"><pre><span class="c1"># 创建两个结构不同的模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SourceModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;源模型（预训练）：1000 类输出&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>  <span class="c1"># ImageNet 1000 类</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TargetModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;目标模型（微调）：10 类输出&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>  <span class="c1"># 只有 10 类</span>
+
+<span class="n">source</span> <span class="o">=</span> <span class="n">SourceModel</span><span class="p">()</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">TargetModel</span><span class="p">()</span>
+
+<span class="c1"># 从源模型获取 state_dict</span>
+<span class="n">source_sd</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;源模型 state_dict keys:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">source_sd</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">source_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">目标模型 state_dict keys:&quot;</span><span class="p">)</span>
+<span class="n">target_sd</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">target_sd</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">target_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">源模型 state_dict keys:</span>
+<span class="go">  backbone.0.weight: torch.Size([256, 784])</span>
+<span class="go">  backbone.0.bias: torch.Size([256])</span>
+<span class="go">  backbone.2.weight: torch.Size([128, 256])</span>
+<span class="go">  backbone.2.bias: torch.Size([128])</span>
+<span class="go">  fc.weight: torch.Size([1000, 128])</span>
+<span class="go">  fc.bias: torch.Size([1000])</span>
+
+<span class="go">目标模型 state_dict keys:</span>
+<span class="go">  backbone.0.weight: torch.Size([256, 784])</span>
+<span class="go">  backbone.0.bias: torch.Size([256])</span>
+<span class="go">  backbone.2.weight: torch.Size([128, 256])</span>
+<span class="go">  backbone.2.bias: torch.Size([128])</span>
+<span class="go">  fc.weight: torch.Size([10, 128])</span>
+<span class="go">  fc.bias: torch.Size([10])</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [12]:</div>
+<div class="highlight"><pre><span class="c1"># 测试 strict=True（默认）—— 应该失败！</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== strict=True 加载 ===&quot;</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">target</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">source_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ RuntimeError (符合预期):&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)[:</span><span class="mi">200</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+
+<span class="c1"># 测试 strict=False —— 返回不匹配信息</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== strict=False 加载 ===&quot;</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">source_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 加载成功（部分 key 被忽略）&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   missing_keys:    </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   unexpected_keys: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">unexpected_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 验证：backbone 的权重被正确加载（因为 shape 匹配）</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">backbone.0.weight 是否匹配: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">backbone</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="o">.</span><span class="n">backbone</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="c1"># fc 的 shape 不匹配，所以不会被加载</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;fc.weight 是否匹配: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">weight</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kc">False</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;shape 不同，跳过加载&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== strict=True 加载 ===</span>
+<span class="go">❌ RuntimeError (符合预期):</span>
+<span class="go">   Error(s) in loading state_dict for TargetModel:</span>
+<span class="go">	Missing key(s) in state_dict: &quot;fc.weight&quot;, &quot;fc.bias&quot;.</span>
+<span class="go">	Unexpected key(s) in state_dict: &quot;fc.weight&quot;, &quot;fc.bias&quot;.</span>
+
+<span class="go">=== strict=False 加载 ===</span>
+<span class="go">✅ 加载成功（部分 key 被忽略）</span>
+<span class="go">   missing_keys:    [&#39;fc.weight&#39;, &#39;fc.bias&#39;]</span>
+<span class="go">   unexpected_keys: [&#39;fc.weight&#39;, &#39;fc.bias&#39;]</span>
+
+<span class="go">backbone.0.weight 是否匹配: True</span>
+<span class="go">fc.weight 是否匹配: shape 不同，跳过加载</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>迁移学习的标准做法</strong>：手动过滤匹配的 key</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [13]:</div>
+<div class="highlight"><pre><span class="c1"># 最佳实践：只加载 shape 匹配的 key</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">filter_state_dict</span><span class="p">(</span><span class="n">source_sd</span><span class="p">,</span> <span class="n">target_sd</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;只保留 shape 匹配的 key&quot;&quot;&quot;</span>
+    <span class="n">filtered</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">source_sd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">target_sd</span> <span class="ow">and</span> <span class="n">target_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">filtered</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">filtered</span>
+
+<span class="n">target2</span> <span class="o">=</span> <span class="n">TargetModel</span><span class="p">()</span>
+<span class="n">filtered_sd</span> <span class="o">=</span> <span class="n">filter_state_dict</span><span class="p">(</span><span class="n">source_sd</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;过滤前 keys: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">source_sd</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;过滤后 keys: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">filtered_sd</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;保留的 keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">filtered_sd</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">target2</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">filtered_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">加载结果: missing=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="si">}</span><span class="s2">, unexpected=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">unexpected_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;backbone 已加载: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">target2</span><span class="o">.</span><span class="n">backbone</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="o">.</span><span class="n">backbone</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;fc 未加载（随机初始化）: </span><span class="si">{</span><span class="ow">not</span><span class="w"> </span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">target2</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">weight</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">过滤前 keys: 6 个</span>
+<span class="go">过滤后 keys: 4 个</span>
+<span class="go">保留的 keys: [&#39;backbone.0.weight&#39;, &#39;backbone.0.bias&#39;, &#39;backbone.2.weight&#39;, &#39;backbone.2.bias&#39;]</span>
+
+<span class="go">加载结果: missing=[&#39;fc.weight&#39;, &#39;fc.bias&#39;], unexpected=[]</span>
+<span class="go">backbone 已加载: True</span>
+<span class="go">fc 未加载（随机初始化）: True</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 3：序列化 Hook — 自定义 state_dict 行为</h3>
+
+<p>使用 <code>register_state_dict_pre_hook</code> 在保存 state_dict 前修改 buffer，以及 <code>register_state_dict_post_hook</code> 对结果做后处理。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [14]:</div>
+<div class="highlight"><pre><span class="c1"># === 场景：在保存 state_dict 时自动记录保存时间戳 ===</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TimestampModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="c1"># 一个普通 Python 属性，不会被 state_dict 自动保存</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_saved</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">TimestampModule</span><span class="p">()</span>
+
+<span class="c1"># --- Hook 1: state_dict_pre_hook — 保存前记录时间戳 ---</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">pre_save_hook</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;在 state_dict 开始前执行，参数和 buffer 还未被收集&quot;&quot;&quot;</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">last_saved</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[pre_hook] prefix=&#39;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">&#39;, 记录保存时间: </span><span class="si">{</span><span class="n">module</span><span class="o">.</span><span class="n">last_saved</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">pre_handle</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">register_state_dict_pre_hook</span><span class="p">(</span><span class="n">pre_save_hook</span><span class="p">)</span>
+
+<span class="c1"># --- Hook 2: state_dict_post_hook — 保存后向结果注入自定义数据 ---</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">post_save_hook</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;在 state_dict 收集完成后执行，可以修改返回的 dict&quot;&quot;&quot;</span>
+    <span class="n">state_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s1">_saved_at&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">module</span><span class="o">.</span><span class="n">last_saved</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[post_hook] prefix=&#39;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">&#39;, 注入了 _saved_at 字段&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">state_dict</span>  <span class="c1"># 返回修改后的 state_dict</span>
+
+<span class="n">post_handle</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">register_state_dict_post_hook</span><span class="p">(</span><span class="n">post_save_hook</span><span class="p">)</span>
+
+<span class="c1"># 执行 state_dict</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 调用 state_dict() ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 结果 ===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">model.last_saved: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">last_saved</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理 hook</span>
+<span class="n">pre_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">post_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ Hooks 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 调用 state_dict() ===</span>
+
+<span class="go">[pre_hook] prefix=&#39;&#39;, 记录保存时间: 1764861964.83</span>
+<span class="go">[post_hook] prefix=&#39;&#39;, 注入了 _saved_at 字段</span>
+
+<span class="go">=== 结果 ===</span>
+<span class="go">  linear.weight: Parameter containing:</span>
+<span class="go">tensor([[ 0.0835, -0.2615, -0.1107, -0.0152,  0.0848, -0.0244,  0.1402,  0.1630,</span>
+<span class="go">         -0.0929, -0.2885],</span>
+<span class="go">        ...</span>
+<span class="go">        [-0.1033,  0.1482, -0.0500,  0.1192, -0.2905,  0.2190,  0.3106, -0.1308,</span>
+<span class="go">          0.2787, -0.0270]], requires_grad=True)</span>
+<span class="go">  linear.bias: Parameter containing:</span>
+<span class="go">tensor([...], requires_grad=True)</span>
+<span class="go">  _saved_at: tensor([1.7649e+09])</span>
+
+<span class="go">model.last_saved: 1764861964.83</span>
+
+<span class="go">✅ Hooks 已清理</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>Hook 执行顺序总结</strong>：</p>
+
+<pre><code>state_dict() 调用
+│
+├── 1. _state_dict_pre_hooks 依次执行（每个 hook 接收 module, prefix, keep_vars）
+├── 2. _save_to_state_dict() → 收集当前模块的 parameters + persistent buffers + extra_state
+├── 3. 对每个子模块递归调用 state_dict()
+├── 4. _state_dict_hooks 依次执行（每个 hook 接收 module, state_dict, prefix, local_metadata）
+│      └── hook 可以返回修改后的 state_dict
+└── 5. 返回 destination</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 4：<code>get_extra_state</code> / <code>set_extra_state</code> — 保存非 Tensor 数据</h3>
+
+<p>创建一个带计数器的 Module，通过 <code>extra_state</code> 保存/加载训练步数。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [15]:</div>
+<div class="highlight"><pre><span class="k">class</span><span class="w"> </span><span class="nc">StatefulModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;带自定义状态的 Module —— 记录训练步数和配置&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">)</span>
+        <span class="c1"># 非 Tensor 状态：不会被 state_dict() 自动保存</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_steps</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config_name</span> <span class="o">=</span> <span class="n">config_name</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_steps</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 每次 forward 计数</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># --- 覆写 get_extra_state ---</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_extra_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;保存自定义 Python 对象到 state_dict&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;train_steps&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_steps</span><span class="p">,</span>
+            <span class="s1">&#39;config_name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_name</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="c1"># --- 覆写 set_extra_state ---</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_extra_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;从 state_dict 恢复自定义状态&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_steps</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;train_steps&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config_name</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;config_name&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[set_extra_state] 恢复了 train_steps=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">train_steps</span><span class="si">}</span><span class="s2">, config_name=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+<span class="c1"># === 测试 ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 创建模型并模拟训练 ===&quot;</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">StatefulModule</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s1">&#39;experiment_v1&#39;</span><span class="p">)</span>
+
+<span class="c1"># 模拟几步训练</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">42</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train_steps: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">train_steps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;config_name: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">config_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 保存</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 保存 state_dict ===&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="s1">&#39;extra&#39;</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s1">&#39;state&#39;</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: shape=</span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 创建新模型，加载</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 加载到新模型 ===&quot;</span><span class="p">)</span>
+<span class="n">new_model</span> <span class="o">=</span> <span class="n">StatefulModule</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;加载前: train_steps=</span><span class="si">{</span><span class="n">new_model</span><span class="o">.</span><span class="n">train_steps</span><span class="si">}</span><span class="s2">, config_name=&#39;</span><span class="si">{</span><span class="n">new_model</span><span class="o">.</span><span class="n">config_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+<span class="n">new_model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;加载后: train_steps=</span><span class="si">{</span><span class="n">new_model</span><span class="o">.</span><span class="n">train_steps</span><span class="si">}</span><span class="s2">, config_name=&#39;</span><span class="si">{</span><span class="n">new_model</span><span class="o">.</span><span class="n">config_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 创建模型并模拟训练 ===</span>
+<span class="go">train_steps: 42</span>
+<span class="go">config_name: experiment_v1</span>
+
+<span class="go">=== 保存 state_dict ===</span>
+<span class="go">  linear.weight: shape=torch.Size([10, 10])</span>
+<span class="go">  linear.bias: shape=torch.Size([10])</span>
+<span class="go">  _extra_state: {&#39;train_steps&#39;: 42, &#39;config_name&#39;: &#39;experiment_v1&#39;}</span>
+
+<span class="go">=== 加载到新模型 ===</span>
+<span class="go">加载前: train_steps=0, config_name=&#39;&#39;</span>
+<span class="go">[set_extra_state] 恢复了 train_steps=42, config_name=&#39;experiment_v1&#39;</span>
+<span class="go">加载后: train_steps=42, config_name=&#39;experiment_v1&#39;</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="warning">⚠️ <strong>重要限制</strong>：<code>get_extra_state()</code> 返回的对象必须是 <strong>picklable</strong> 的（因为 <code>torch.save</code> 内部使用 pickle）。复杂的自定义对象需要自己处理序列化逻辑。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 5：<code>load_state_dict</code> Pre-Hook — 版本兼容性处理</h3>
+
+<p>模拟模型升级场景：v1 版本的 state_dict 有旧 key 名，通过 pre-hook 自动转换为新 key 名。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [16]:</div>
+<div class="highlight"><pre><span class="c1"># 场景：模型 v1 的参数叫 &quot;fc.weight&quot;，v2 重构后改名为 &quot;head.weight&quot;</span>
+<span class="c1"># 通过 load_state_dict_pre_hook 实现向后兼容</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelV2</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>  <span class="c1"># v2 改名了！v1 叫 &quot;fc&quot;</span>
+
+<span class="c1"># 创建一个假的 v1 state_dict</span>
+<span class="n">model_v1_sd</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([</span>
+    <span class="p">(</span><span class="s1">&#39;backbone.weight&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
+    <span class="p">(</span><span class="s1">&#39;backbone.bias&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">50</span><span class="p">)),</span>
+    <span class="p">(</span><span class="s1">&#39;fc.weight&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">)),</span>       <span class="c1"># v1 的旧名字</span>
+    <span class="p">(</span><span class="s1">&#39;fc.bias&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
+<span class="p">])</span>
+
+<span class="c1"># --- 定义 pre-hook：自动重命名 ---</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rename_hook</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span>
+                <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;将 state_dict 中的 &#39;fc.*&#39; 重命名为 &#39;head.*&#39;&quot;&quot;&quot;</span>
+    <span class="n">keys_to_rename</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;fc.&#39;</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">old_key</span> <span class="ow">in</span> <span class="n">keys_to_rename</span><span class="p">:</span>
+        <span class="n">new_key</span> <span class="o">=</span> <span class="n">old_key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;fc.&#39;</span><span class="p">,</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;head.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>
+            <span class="n">state_dict</span><span class="p">[</span><span class="n">new_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old_key</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[pre_hook] 重命名: </span><span class="si">{</span><span class="n">old_key</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">new_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">ModelV2</span><span class="p">()</span>
+
+<span class="c1"># 不注册 hook → strict=True 应该失败</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 无 hook，strict=True 加载 ===&quot;</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_v1_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ 失败: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)[:</span><span class="mi">150</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+
+<span class="c1"># 注册 hook 后再试</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 注册 rename_hook 后，strict=True 加载 ===&quot;</span><span class="p">)</span>
+<span class="n">model2</span> <span class="o">=</span> <span class="n">ModelV2</span><span class="p">()</span>
+<span class="n">handle</span> <span class="o">=</span> <span class="n">model2</span><span class="o">.</span><span class="n">register_load_state_dict_pre_hook</span><span class="p">(</span><span class="n">rename_hook</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model2</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_v1_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 成功! missing=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="si">}</span><span class="s2">, unexpected=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">unexpected_keys</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;head.weight 已加载: </span><span class="si">{</span><span class="n">model2</span><span class="o">.</span><span class="n">head</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 无 hook，strict=True 加载 ===</span>
+<span class="go">❌ 失败: Error(s) in loading state_dict for ModelV2:</span>
+<span class="go">	Missing key(s) in state_dict: &quot;head.weight&quot;, &quot;head.bias&quot;.</span>
+<span class="go">	Unexpected key(s) in state_dict: &quot;fc.weight&quot;, &quot;f...</span>
+
+<span class="go">=== 注册 rename_hook 后，strict=True 加载 ===</span>
+<span class="go">[pre_hook] 重命名: fc.weight → head.weight</span>
+<span class="go">[pre_hook] 重命名: fc.bias → head.bias</span>
+<span class="go">✅ 成功! missing=[], unexpected=[]</span>
+
+<span class="go">head.weight 已加载: torch.Size([10, 50])</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 6：<code>_IncompatibleKeys</code> 的实用模式</h3>
+
+<p>编写一个健壮的 <code>safe_load_state_dict</code>，自动处理 shape mismatch 和 key mismatch。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [17]:</div>
+<div class="highlight"><pre><span class="k">def</span><span class="w"> </span><span class="nf">safe_load_state_dict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    安全的 state_dict 加载器：</span>
+<span class="sd">    1. 自动跳过 shape 不匹配的 key</span>
+<span class="sd">    2. 自动跳过不存在的 key</span>
+<span class="sd">    3. 报告所有 mismatch</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model_sd</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="c1"># 过滤：只保留在模型中存在且 shape 匹配的 key</span>
+    <span class="n">filtered_sd</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="n">skipped_shape</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">skipped_missing</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">model_sd</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">model_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="n">filtered_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">skipped_shape</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">model_sd</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">skipped_missing</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+
+    <span class="c1"># 加载过滤后的 state_dict</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">filtered_sd</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># 报告</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== 加载报告 ===&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;state_dict 总 key 数: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;成功加载: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">filtered_sd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;shape 不匹配（跳过）: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">skipped_shape</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="n">ss</span> <span class="ow">in</span> <span class="n">skipped_shape</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ⚠️  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: model shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">ms</span><span class="p">)</span><span class="si">}</span><span class="s2">, checkpoint shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">ss</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;不存在（跳过）: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">skipped_missing</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">skipped_missing</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ⚠️  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;模型中有但 state_dict 没有: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ⚠️  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;loaded&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_sd</span><span class="p">),</span>
+        <span class="s1">&#39;skipped_shape&#39;</span><span class="p">:</span> <span class="n">skipped_shape</span><span class="p">,</span>
+        <span class="s1">&#39;skipped_missing&#39;</span><span class="p">:</span> <span class="n">skipped_missing</span><span class="p">,</span>
+        <span class="s1">&#39;missing_in_sd&#39;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">missing_keys</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<span class="c1"># 测试</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TestModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layer1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layer2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layer3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">TestModel</span><span class="p">()</span>
+
+<span class="c1"># 构造一个部分匹配的 state_dict</span>
+<span class="n">test_sd</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([</span>
+    <span class="p">(</span><span class="s1">&#39;layer1.weight&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>   <span class="c1"># ✅ 匹配</span>
+    <span class="p">(</span><span class="s1">&#39;layer1.bias&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">50</span><span class="p">)),</span>           <span class="c1"># ✅ 匹配</span>
+    <span class="p">(</span><span class="s1">&#39;layer2.weight&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>    <span class="c1"># ❌ shape 不匹配 (model: 10x50)</span>
+    <span class="p">(</span><span class="s1">&#39;layer2.bias&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>           <span class="c1"># ✅ 匹配</span>
+    <span class="p">(</span><span class="s1">&#39;old_layer.weight&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span>   <span class="c1"># ❌ 模型中不存在</span>
+<span class="p">])</span>
+
+<span class="n">report</span> <span class="o">=</span> <span class="n">safe_load_state_dict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">test_sd</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 加载报告 ===</span>
+<span class="go">state_dict 总 key 数: 4</span>
+<span class="go">成功加载: 3</span>
+<span class="go">shape 不匹配（跳过）: 1</span>
+<span class="go">  ⚠️  layer2.weight: model shape=[10, 50], checkpoint shape=[10, 100]</span>
+<span class="go">不存在（跳过）: 1</span>
+<span class="go">  ⚠️  old_layer.weight</span>
+<span class="go">模型中有但 state_dict 没有: 2</span>
+<span class="go">  ⚠️  layer2.weight</span>
+<span class="go">  ⚠️  layer3.weight</span>
+<span class="go">  ⚠️  layer3.bias</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part D: 小结</h2>
+
+<h3>核心方法调用链</h3>
+
+<pre><code>保存路径：
+  model.state_dict()
+    ├── _state_dict_pre_hooks（可修改模块状态）
+    ├── _save_to_state_dict(dest, prefix, keep_vars)
+    │     ├── 遍历 _parameters → dest[prefix + name] = param.detach()
+    │     ├── 遍历 _buffers（跳过 non-persistent）→ dest[prefix + name] = buf.detach()
+    │     └── 调用 get_extra_state() → dest[prefix + _EXTRA_STATE_KEY_SUFFIX]
+    ├── 递归：child.state_dict(destination, prefix + name + &quot;.&quot;, keep_vars)
+    └── _state_dict_hooks（可修改 destination）
+
+加载路径：
+  model.load_state_dict(state_dict, strict=True)
+    ├── load(module, prefix)
+    │     ├── _load_from_state_dict()
+    │     │     ├── _load_state_dict_pre_hooks（可修改 state_dict 做兼容处理）
+    │     │     ├── 对每个 local param/buffer：copy_ 或 assign
+    │     │     ├── 处理 extra_state
+    │     │     └── 检查 missing_keys / unexpected_keys
+    │     └── 递归：load(child, child_prefix)
+    └── strict=True 且有 mismatch → RuntimeError
+        strict=False → 返回 _IncompatibleKeys(missing_keys, unexpected_keys)</code></pre>
+
+<h3>要点清单</h3>
+
+<ul>
+<li><input type="checkbox" checked disabled> <code>state_dict()</code> 递归收集所有参数和 persistent buffer，key 格式为 <code>{prefix}{name}</code></li>
+<li><input type="checkbox" checked disabled> <code>_save_to_state_dict</code> 只收集<strong>当前</strong>模块的状态（不递归子模块）</li>
+<li><input type="checkbox" checked disabled> <code>non_persistent_buffers_set</code> 中的 buffer 不会出现在 state_dict 中</li>
+<li><input type="checkbox" checked disabled> <code>load_state_dict(strict=True)</code> 要求 key 完全匹配，否则抛出 RuntimeError</li>
+<li><input type="checkbox" checked disabled> <code>load_state_dict(strict=False)</code> 返回 <code>_IncompatibleKeys</code> 对象，适合迁移学习</li>
+<li><input type="checkbox" checked disabled> <code>register_state_dict_pre_hook</code> 在保存前执行（如记录时间戳）</li>
+<li><input type="checkbox" checked disabled> <code>register_state_dict_post_hook</code> 在保存后执行（如注入自定义 key）</li>
+<li><input type="checkbox" checked disabled> <code>register_load_state_dict_pre_hook</code> 在加载前执行（如重命名旧 key → 新 key）</li>
+<li><input type="checkbox" checked disabled> <code>get_extra_state</code> / <code>set_extra_state</code> 用于保存/加载非 Tensor 数据</li>
+<li><input type="checkbox" checked disabled> <code>_IncompatibleKeys</code> 是 namedtuple，包含 <code>missing_keys</code> 和 <code>unexpected_keys</code></li>
+</ul>
+
+<h3>常见陷阱</h3>
+
+<table>
+<tr>
+<th>陷阱</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>strict=True 迁移学习</strong></td>
+<td>直接加载预训练模型到不同结构会报错，需 <code>strict=False</code></td>
+</tr>
+<tr>
+<td><strong>extra_state 默认抛异常</strong></td>
+<td>必须覆写 <code>get_extra_state</code> / <code>set_extra_state</code>，否则保存/加载会失败</td>
+</tr>
+<tr>
+<td><strong>shape 不匹配不会自动跳过</strong></td>
+<td>strict=False 下，shape 不匹配会导致 <code>copy_</code> 失败（报错）而不是跳过</td>
+</tr>
+<tr>
+<td><strong>hook 的返回值</strong></td>
+<td><code>state_dict_post_hook</code> 的返回值会<strong>替换</strong> destination，不返回则使用原值</td>
+</tr>
+<tr>
+<td><strong>non-persistent buffer</strong></td>
+<td>如 Dropout 的 mask，不会保存。加载后需要重新生成</td>
+</tr>
+</table>
+
+<h3>与后续 Notebook 的关联</h3>
+
+<ul>
+<li><strong>Notebook 08</strong>：全局 Hook 系统（<code>register_module_*_hook</code>），与序列化 hook 共享相似的注册/执行机制</li>
+<li><strong>Notebook 09</strong>：容器类（Sequential, ModuleList 等）在 state_dict 中的 key 命名规则</li>
+<li><strong>Notebook 10</strong>：<code>compile</code> 和序列化的交互（编译后的模型如何正确保存/加载）</li>
+</ul>
+
+<h3>延伸阅读</h3>
+
+<ul>
+<li><a href="https://pytorch.org/tutorials/beginner/saving_loading_models.html" target="_blank">PyTorch 官方 Saving & Loading 教程</a></li>
+<li><a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py#L2300-L2450" target="_blank">PyTorch 源码 state_dict 实现</a></li>
+<li><a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py#L2450-L2700" target="_blank">PyTorch 源码 load_state_dict 实现</a></li>
+</ul>
+</div>
+
     </div>
 </main>
-<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a> · <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a></p></footer>
 <script src="../../js/main.js"></script>
 </body>
 </html>

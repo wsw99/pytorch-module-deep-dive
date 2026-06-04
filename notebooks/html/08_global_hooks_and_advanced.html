@@ -5,6 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>08 · 全局 Hook 与高级内部机制 — PyTorch module.py Deep Dive</title>
     <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        /* ============================================================
+           Pygments syntax highlighting — uses site CSS variables
+           ============================================================ */
+        pre { line-height: 125%; }
+td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+.highlight .hll { background-color: #ffffcc }
+.highlight { background: #f8f8f8; }
+.highlight .c { color: #3D7B7B; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #F00 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666 } /* Operator */
+.highlight .ch { color: #3D7B7B; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #3D7B7B; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #9C6500 } /* Comment.Preproc */
+.highlight .cpf { color: #3D7B7B; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #3D7B7B; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #3D7B7B; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .ges { font-weight: bold; font-style: italic } /* Generic.EmphStrong */
+.highlight .gr { color: #E40000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #008400 } /* Generic.Inserted */
+.highlight .go { color: #717171 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #04D } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #687822 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #00F; font-weight: bold } /* Name.Class */
+.highlight .no { color: #800 } /* Name.Constant */
+.highlight .nd { color: #A2F } /* Name.Decorator */
+.highlight .ni { color: #717171; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #CB3F38; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #00F } /* Name.Function */
+.highlight .nl { color: #767600 } /* Name.Label */
+.highlight .nn { color: #00F; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #A2F; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #BBB } /* Text.Whitespace */
+.highlight .mb { color: #666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666 } /* Literal.Number.Float */
+.highlight .mh { color: #666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #AA5D1F; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #A45A77; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #A45A77 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #00F } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666 } /* Literal.Number.Integer.Long */
+
+        /* Override pygments colors with site theme variables */
+        .highlight { background: var(--code-bg); }
+        .highlight .k, .highlight .kn, .highlight .kd, .highlight .kc, .highlight .kr, .highlight .kt { color: #d73a49; font-weight: bold; }
+        .highlight .n, .highlight .nb, .highlight .bp, .highlight .fm { color: #24292e; }
+        .highlight .s, .highlight .s1, .highlight .s2, .highlight .sa, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx { color: #032f62; }
+        .highlight .mi, .highlight .mf, .highlight .mh, .highlight .mo, .highlight .il, .highlight .m { color: #005cc5; }
+        .highlight .c, .highlight .c1, .highlight .cm, .highlight .cp, .highlight .cs, .highlight .ch { color: #6a737d; font-style: italic; }
+        .highlight .o, .highlight .ow, .highlight .p { color: #24292e; }
+        .highlight .nf, .highlight .nc, .highlight .ne { color: #6f42c1; }
+        .highlight .nn, .highlight .no { color: #005cc5; }
+        .highlight .nd { color: #6f42c1; }
+        .highlight .vm, .highlight .nb { color: #005cc5; }
+        .highlight .err { color: #cb2431; }
+
+        /* Dark mode overrides */
+        [data-theme="dark"] .highlight .k, [data-theme="dark"] .highlight .kn,
+        [data-theme="dark"] .highlight .kd, [data-theme="dark"] .highlight .kc,
+        [data-theme="dark"] .highlight .kr, [data-theme="dark"] .highlight .kt { color: #ff7b72; font-weight: bold; }
+        [data-theme="dark"] .highlight .n, [data-theme="dark"] .highlight .nb,
+        [data-theme="dark"] .highlight .bp, [data-theme="dark"] .highlight .fm { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .s, [data-theme="dark"] .highlight .s1,
+        [data-theme="dark"] .highlight .s2, [data-theme="dark"] .highlight .sa,
+        [data-theme="dark"] .highlight .sb, [data-theme="dark"] .highlight .sc,
+        [data-theme="dark"] .highlight .sd, [data-theme="dark"] .highlight .se,
+        [data-theme="dark"] .highlight .sh, [data-theme="dark"] .highlight .si,
+        [data-theme="dark"] .highlight .sx { color: #a5d6ff; }
+        [data-theme="dark"] .highlight .mi, [data-theme="dark"] .highlight .mf,
+        [data-theme="dark"] .highlight .mh, [data-theme="dark"] .highlight .mo,
+        [data-theme="dark"] .highlight .il, [data-theme="dark"] .highlight .m { color: #79c0ff; }
+        [data-theme="dark"] .highlight .c, [data-theme="dark"] .highlight .c1,
+        [data-theme="dark"] .highlight .cm, [data-theme="dark"] .highlight .cp,
+        [data-theme="dark"] .highlight .cs, [data-theme="dark"] .highlight .ch { color: #8b949e; font-style: italic; }
+        [data-theme="dark"] .highlight .o, [data-theme="dark"] .highlight .ow,
+        [data-theme="dark"] .highlight .p { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .nf, [data-theme="dark"] .highlight .nc,
+        [data-theme="dark"] .highlight .ne { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .nn, [data-theme="dark"] .highlight .no { color: #79c0ff; }
+        [data-theme="dark"] .highlight .nd { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .vm { color: #79c0ff; }
+        [data-theme="dark"] .highlight .err { color: #f85149; }
+
+        /* Notebook cell styling */
+        .notebook-cell { margin: 1.5em 0; padding: 0 1em; }
+        .notebook-cell.markdown { line-height: 1.8; }
+        .notebook-cell.markdown h2 { border-bottom: 2px solid #e74c3c; padding-bottom: 0.3em; margin-top: 1.5em; }
+        .notebook-cell.markdown h3 { margin-top: 1.5em; color: #c0392b; }
+        .notebook-cell.markdown table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .notebook-cell.markdown th, .notebook-cell.markdown td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        .notebook-cell.markdown th { background: #f5f5f5; font-weight: 600; }
+        .notebook-cell.markdown code { background: var(--code-bg); color: var(--code-text); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .notebook-cell.markdown pre { background: var(--code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border-color); line-height: 1.5; }
+        .notebook-cell.markdown pre code { background: none; padding: 0; color: inherit; }
+        .notebook-cell.code { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .notebook-cell.code .input-area { padding: 1em; border-bottom: 1px solid var(--border-color); }
+        .notebook-cell.code .input-area .highlight { background: var(--code-bg); padding: 0.8em 1em; border-radius: 6px; overflow-x: auto; }
+        .notebook-cell.code .input-area .highlight pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.88em; line-height: 1.5; }
+        .notebook-cell.code .input-area .in-prompt { color: #3498db; font-weight: bold; margin-bottom: 0.5em; }
+        .notebook-cell.code .output-area { padding: 0.8em 1em; }
+        .notebook-cell.code .output-area pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.85em; line-height: 1.4; color: var(--text-secondary); }
+        blockquote.tip { border-left: 4px solid #27ae60; padding: 0.5em 1em; margin: 1em 0; background: #f0fff4; border-radius: 0 6px 6px 0; }
+        blockquote.warning { border-left: 4px solid #f39c12; padding: 0.5em 1em; margin: 1em 0; background: #fffdf0; border-radius: 0 6px 6px 0; }
+
+        /* Dark mode overrides for notebook cells */
+        [data-theme="dark"] .notebook-cell.markdown h2 { border-bottom-color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown h3 { color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown th { background: var(--bg-tertiary); }
+        [data-theme="dark"] .notebook-cell.markdown th, [data-theme="dark"] .notebook-cell.markdown td { border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code { background: var(--bg-secondary); border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area .in-prompt { color: #60a5fa; }
+        [data-theme="dark"] blockquote.tip { background: #064e3b; color: #d1fae5; }
+        [data-theme="dark"] blockquote.warning { background: #78350f; color: #fef3c7; }
+    </style>
 </head>
 <body>
 <nav class="navbar">
@@ -20,8 +173,8 @@
                 <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
                 <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
                 <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
-                <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
-                <a href="08_global_hooks_and_advanced.html" class="nav-item active">08 · 全局 Hook 与高级机制</a>
+                <a href="07_state_serialization.html" class="nav-item active">07 · 状态序列化</a>
+                <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
                 <a href="09_containers.html" class="nav-item">09 · 容器类</a>
                 <a href="10_compilation_and_internals.html" class="nav-item">10 · 编译系统与内部细节</a>
             </div>
@@ -33,26 +186,1497 @@
 <main class="main-content">
     <header class="page-header">
         <h1>08 · 全局 Hook 与高级内部机制</h1>
-        <p class="subtitle">覆盖：<code>register_module_forward_pre_hook</code>, <code>register_module_forward_hook</code>, <code>register_module_full_backward_hook</code>, <code>register_module_full_backward_pre_hook</code>, <code>_WrappedHook</code>, 全局 OrderedDict 注册表</p>
+        <p class="subtitle">覆盖：register_module_forward_pre_hook, register_module_forward_hook, register_module_full_backward_hook, register_module_full_backward_pre_hook, _WrappedHook, 全局 OrderedDict 注册表, registration hook</p>
     </header>
     <div class="diagram-container">
-        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
-            <p style="font-size: 4rem;">📝</p>
-            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
-            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
-        </div>
-        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
-            <h3>📋 本 Notebook 大纲</h3>
-            <h4>Part A: 源码阅读</h4>
-            <ul><li>全局 hook 的注册表结构（模块级 OrderedDict）</li><li><code>_WrappedHook</code> 的设计与用途</li><li>全局 hook vs 局部 hook 的执行顺序源码</li></ul>
-            <h4>Part B: 机制分析</h4>
-            <ul><li>为什么 PyTorch 同时提供了全局和局部 hook</li><li>全局 hook 的典型应用场景（profiling, debugging）</li></ul>
-            <h4>Part C: 动手实验</h4>
-            <ul><li>实验 1：全局 hook 实现简易 profiler</li><li>实验 2：全局 forward_pre_hook 修改所有模块输入</li><li>实验 3：全局 vs 局部 hook 执行顺序验证</li></ul>
-        </div>
+
+<div class="notebook-cell markdown">
+<h1>08 · 全局 Hook 与高级内部机制</h1>
+
+<blockquote><strong>覆盖的类/函数</strong>：<code>register_module_forward_pre_hook</code>, <code>register_module_forward_hook</code>, <code>register_module_full_backward_pre_hook</code>, <code>register_module_full_backward_hook</code>, <code>register_module_backward_hook</code>（已废弃）, <code>register_module_buffer_registration_hook</code>, <code>register_module_module_registration_hook</code>, <code>register_module_parameter_registration_hook</code>, <code>_WrappedHook</code>, <code>_call_impl</code> 中的全局 hook 执行路径
+<strong>PyTorch 源码</strong>：<a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank">torch/nn/modules/module.py</a>
+<strong>运行环境</strong>：Python 3.9+, PyTorch 2.0+</blockquote>
+
+<p>本 Notebook 深入 PyTorch 的<strong>全局 Hook 系统</strong>——在 Notebook 06 中我们学习了如何给<strong>单个模块</strong>注册 hook，而全局 Hook 允许你在<strong>所有模块</strong>的前向/反向传播中插入自定义逻辑，是 profiling、debugging、模型分析的利器。</p>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part A: 源码阅读</h2>
+
+<p>首先建立基础环境并观察全局 Hook 的注册表结构：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [1]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PyTorch 版本: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="c1"># 引入 module 模块，方便查看全局状态</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules</span><span class="w"> </span><span class="kn">import</span> <span class="n">module</span> <span class="k">as</span> <span class="n">mod_module</span>
+
+<span class="c1"># 构建一个测试模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DemoModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">DemoModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">PyTorch 版本: 2.8.0</span>
+<span class="go">DemoModel(</span>
+<span class="go">  (fc1): Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  (relu): ReLU()</span>
+<span class="go">  (fc2): Linear(in_features=20, out_features=5, bias=True)</span>
+<span class="go">)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.1 全局 Hook 的注册表结构</h3>
+
+<p>与局部 hook 存储在<strong>模块实例</strong>的 <code>OrderedDict</code> 中不同，全局 hook 存储在 <strong><code>torch.nn.modules.module</code> 模块级别</strong>的 <code>OrderedDict</code> 中，对所有 Module 实例可见。PyTorch 在 <code>module.py</code> 文件中声明了以下全局注册表：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [2]:</div>
+<div class="highlight"><pre><span class="c1"># 查看全局 hook 注册表</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 全局 hook 注册表（模块级 OrderedDict）===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">global_registries</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># 前向 hook（全局）</span>
+    <span class="s1">&#39;_global_forward_pre_hooks&#39;</span><span class="p">:</span>           <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_pre_hooks</span><span class="p">,</span>
+    <span class="s1">&#39;_global_forward_hooks&#39;</span><span class="p">:</span>               <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_hooks</span><span class="p">,</span>
+    <span class="s1">&#39;_global_forward_hooks_always_called&#39;</span><span class="p">:</span> <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_hooks_always_called</span><span class="p">,</span>
+    <span class="s1">&#39;_global_forward_hooks_with_kwargs&#39;</span><span class="p">:</span>   <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_hooks_with_kwargs</span><span class="p">,</span>
+    <span class="c1"># 反向 hook（全局）</span>
+    <span class="s1">&#39;_global_backward_pre_hooks&#39;</span><span class="p">:</span>          <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_backward_pre_hooks</span><span class="p">,</span>
+    <span class="s1">&#39;_global_backward_hooks&#39;</span><span class="p">:</span>              <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_backward_hooks</span><span class="p">,</span>
+    <span class="c1"># 注册类 hook（全局）</span>
+    <span class="s1">&#39;_global_buffer_registration_hooks&#39;</span><span class="p">:</span>   <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_buffer_registration_hooks</span><span class="p">,</span>
+    <span class="s1">&#39;_global_module_registration_hooks&#39;</span><span class="p">:</span>   <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_module_registration_hooks</span><span class="p">,</span>
+    <span class="s1">&#39;_global_parameter_registration_hooks&#39;</span><span class="p">:</span> <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_parameter_registration_hooks</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">registry</span> <span class="ow">in</span> <span class="n">global_registries</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;45</span><span class="si">}</span><span class="s2"> type=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> items=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">registry</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  _global_is_full_backward_hook = </span><span class="si">{</span><span class="n">mod_module</span><span class="o">.</span><span class="n">_global_is_full_backward_hook</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">当前所有注册表均为空 —— 尚未注册任何全局 hook。&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;与局部 hook 不同，这些 OrderedDict 属于 module 模块，而非某个 Module 实例。&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 全局 hook 注册表（模块级 OrderedDict）===</span>
+
+<span class="go">  _global_forward_pre_hooks                        type=OrderedDict   items=0</span>
+<span class="go">  _global_forward_hooks                            type=OrderedDict   items=0</span>
+<span class="go">  _global_forward_hooks_always_called              type=OrderedDict   items=0</span>
+<span class="go">  _global_forward_hooks_with_kwargs                type=OrderedDict   items=0</span>
+<span class="go">  _global_backward_pre_hooks                       type=OrderedDict   items=0</span>
+<span class="go">  _global_backward_hooks                           type=OrderedDict   items=0</span>
+<span class="go">  _global_buffer_registration_hooks                type=OrderedDict   items=0</span>
+<span class="go">  _global_module_registration_hooks                type=OrderedDict   items=0</span>
+<span class="go">  _global_parameter_registration_hooks             type=OrderedDict   items=0</span>
+
+<span class="go">  _global_is_full_backward_hook = None</span>
+
+<span class="go">当前所有注册表均为空 —— 尚未注册任何全局 hook。</span>
+<span class="go">与局部 hook 不同，这些 OrderedDict 属于 module 模块，而非某个 Module 实例。</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>全局注册表架构</strong>：</p>
+
+<pre><code>torch/nn/modules/module.py (模块作用域)
+│
+├── 前向传播全局 Hook
+│   ├── _global_forward_pre_hooks: OrderedDict      → forward() 之前执行
+│   ├── _global_forward_hooks: OrderedDict           → forward() 之后执行
+│   ├── _global_forward_hooks_always_called: OrderedDict  → 标记哪些 hook 异常时也执行
+│   └── _global_forward_hooks_with_kwargs: OrderedDict    → 标记哪些 hook 接收 kwargs
+│
+├── 反向传播全局 Hook
+│   ├── _global_backward_pre_hooks: OrderedDict      → backward() 梯度计算前
+│   ├── _global_backward_hooks: OrderedDict          → backward() 梯度计算后
+│   └── _global_is_full_backward_hook: Optional[bool] → 互斥标记
+│
+└── 注册类全局 Hook（参数/buffer/子模块注册时触发）
+    ├── _global_buffer_registration_hooks: OrderedDict
+    ├── _global_module_registration_hooks: OrderedDict
+    └── _global_parameter_registration_hooks: OrderedDict</code></pre>
+
+<blockquote class="tip">💡 <strong>设计要点</strong>：前向 hook 有 4 个并行 OrderedDict，额外的 <code>_always_called</code> 和 <code>_with_kwargs</code> 字典使用<strong>相同的 hook_id</strong> 作为 key，记录元信息而非函数本身。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.2 <code>_WrappedHook</code> — Hook 包装器的设计</h3>
+
+<p><code>_WrappedHook</code> 是 PyTorch 内部用于包装 hook 函数的类。它的核心功能是<strong>将 module 引用绑定到 hook 调用中</strong>，这样局部 hook 的回调可以接收 <code>module</code> 作为第一个参数：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [3]:</div>
+<div class="highlight"><pre><span class="c1"># _WrappedHook 源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _WrappedHook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">_WrappedHook</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _WrappedHook 源码 ===</span>
+<span class="go">class _WrappedHook:</span>
+<span class="go">    def __init__(self, hook: Callable, module: Optional[&quot;Module&quot;] = None):</span>
+<span class="go">        self.hook: Callable = hook</span>
+<span class="go">        functools.update_wrapper(self, hook)</span>
+
+<span class="go">        self.with_module: bool = False</span>
+
+<span class="go">        if module is not None:</span>
+<span class="go">            self.module: weakref.ReferenceType[Module] = weakref.ref(module)</span>
+<span class="go">            self.with_module = True</span>
+
+<span class="go">    def __call__(self, *args: Any, **kwargs: Any) -&gt; Any:</span>
+<span class="go">        if self.with_module:</span>
+<span class="go">            module = self.module()</span>
+<span class="go">            if module is None:</span>
+<span class="go">                raise RuntimeError(&quot;You are trying to call the hook of a dead Module!&quot;)</span>
+<span class="go">            return self.hook(module, *args, **kwargs)</span>
+<span class="go">        return self.hook(*args, **kwargs)</span>
+
+<span class="go">    def __getstate__(self) -&gt; dict:</span>
+<span class="go">        result = {&quot;hook&quot;: self.hook, &quot;with_module&quot;: self.with_module}</span>
+<span class="go">        if self.with_module:</span>
+<span class="go">            result[&quot;module&quot;] = self.module()</span>
+
+<span class="go">        return result</span>
+
+<span class="go">    def __setstate__(self, state: dict):</span>
+<span class="go">        self.hook = state[&quot;hook&quot;]</span>
+<span class="go">        self.with_module = state[&quot;with_module&quot;]</span>
+
+<span class="go">        if self.with_module:</span>
+<span class="go">            if state[&quot;module&quot;] is None:</span>
+<span class="go">                raise RuntimeError(</span>
+<span class="go">                    &quot;You are trying to revive the hook of a dead Module!&quot;</span>
+<span class="go">                )</span>
+<span class="go">            self.module = weakref.ref(state[&quot;module&quot;])</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>_WrappedHook</code> 设计分析</strong>：</p>
+
+<table>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>弱引用 module</strong></td>
+<td>使用 <code>weakref.ref(module)</code> 避免循环引用导致的内存泄漏</td>
+</tr>
+<tr>
+<td><strong><code>with_module</code> 标志</strong></td>
+<td>决定 <code>__call__</code> 时是否自动注入 module 参数</td>
+</tr>
+<tr>
+<td><strong><code>update_wrapper</code></strong></td>
+<td>保留原始 hook 的 <code>__name__</code>、<code>__doc__</code> 等元信息</td>
+</tr>
+<tr>
+<td><strong><code>__getstate__</code>/<code>__setstate__</code></strong></td>
+<td>支持 pickle 序列化（用于 torch.save / multiprocessing）</td>
+</tr>
+<tr>
+<td><strong>死模块检测</strong></td>
+<td>如果 module 已被垃圾回收，抛出 <code>RuntimeError("dead Module!")</code></td>
+</tr>
+</table>
+
+<blockquote class="warning">⚠️ <strong>关键用途</strong>：<code>_WrappedHook</code> <strong>只用于局部 hook</strong>（通过 <code>register_hook</code> 注册到 <code>grad_fn</code> 的 backward hook）。全局 hook <strong>不需要</strong>包装 —— 因为全局 hook 的用户函数直接接收 <code>module</code> 参数，无需自动注入。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.3 前向全局 Hook 注册函数</h3>
+
+<p>这两个函数注册的 hook 会在<strong>所有</strong> Module 的 <code>forward()</code> 前后自动触发：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [4]:</div>
+<div class="highlight"><pre><span class="c1"># 源代码展示</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== register_module_forward_pre_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_forward_pre_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_module_forward_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_forward_hook</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== register_module_forward_pre_hook 源码 ===</span>
+<span class="go">def register_module_forward_pre_hook(hook: Callable[..., None]) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a forward pre-hook common to all modules.</span>
+
+<span class="go">    .. warning ::</span>
+
+<span class="go">        This adds global state to the `nn.module` module</span>
+<span class="go">        and it is only intended for debugging/profiling purposes.</span>
+
+<span class="go">    The hook will be called every time before :func:`forward` is invoked.</span>
+<span class="go">    It should have the following signature::</span>
+
+<span class="go">        hook(module, input) -&gt; None or modified input</span>
+
+<span class="go">    The input contains only the positional arguments given to the module.</span>
+<span class="go">    Keyword arguments won&#39;t be passed to the hooks and only to the ``forward``.</span>
+<span class="go">    The hook can modify the input. User can either return a tuple or a</span>
+<span class="go">    single modified value in the hook. We will wrap the value into a tuple</span>
+<span class="go">    if a single value is returned(unless that value is already a tuple).</span>
+
+<span class="go">    This hook has precedence over the specific module hooks registered with</span>
+<span class="go">    ``register_forward_pre_hook``.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(_global_forward_pre_hooks)</span>
+<span class="go">    _global_forward_pre_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+
+
+<span class="go">=== register_module_forward_hook 源码 ===</span>
+<span class="go">def register_module_forward_hook(</span>
+<span class="go">    hook: Callable[..., None],</span>
+<span class="go">    *,</span>
+<span class="go">    with_kwargs: bool = False,</span>
+<span class="go">    always_call: bool = False,</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a global forward hook for all the modules.</span>
+
+<span class="go">    .. warning ::</span>
+
+<span class="go">        This adds global state to the `nn.module` module</span>
+<span class="go">        and it is only intended for debugging/profiling purposes.</span>
+
+<span class="go">    The hook will be called every time after :func:`forward` has computed an output.</span>
+<span class="go">    It should have the following signature::</span>
+
+<span class="go">        hook(module, input, output) -&gt; None or modified output</span>
+
+<span class="go">    The input contains only the positional arguments given to the module.</span>
+<span class="go">    Keyword arguments won&#39;t be passed to the hooks and only to the ``forward``.</span>
+<span class="go">    You can optionally modify the output of the module by returning a new value</span>
+<span class="go">    that will replace the output from the :func:`forward` function.</span>
+
+<span class="go">    Parameters:</span>
+<span class="go">        hook (Callable): The user defined hook to be registered.</span>
+<span class="go">        always_call (bool): If ``True`` the ``hook`` will be run regardless of</span>
+<span class="go">            whether an exception is raised while calling the Module.</span>
+<span class="go">            Default: ``False``</span>
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+
+<span class="go">    This hook will be executed before specific module hooks registered with</span>
+<span class="go">    ``register_forward_hook``.</span>
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(</span>
+<span class="go">        _global_forward_hooks, extra_dict=_global_forward_hooks_always_called</span>
+<span class="go">    )</span>
+<span class="go">    _global_forward_hooks[handle.id] = hook</span>
+<span class="go">    if with_kwargs:</span>
+<span class="go">        _global_forward_hooks_with_kwargs[handle.id] = True</span>
+<span class="go">    if always_call:</span>
+<span class="go">        _global_forward_hooks_always_called[handle.id] = True</span>
+<span class="go">    return handle</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>全局前向 Hook 与局部前向 Hook 的签名对比</strong>：</p>
+
+<table>
+<tr>
+<th>特性</th>
+<th>局部 Hook</th>
+<th>全局 Hook</th>
+</tr>
+<tr>
+<td><strong>注册方法</strong></td>
+<td><code>module.register_forward_pre_hook(fn)</code></td>
+<td><code>register_module_forward_pre_hook(fn)</code></td>
+</tr>
+<tr>
+<td><strong>作用范围</strong></td>
+<td>仅该模块实例</td>
+<td>所有 Module 实例</td>
+</tr>
+<tr>
+<td><strong>hook 签名</strong></td>
+<td><code>hook(module, args)</code></td>
+<td><code>hook(module, args)</code>（相同！）</td>
+</tr>
+<tr>
+<td><strong>prepend 参数</strong></td>
+<td>支持</td>
+<td><strong>不支持</strong>（始终先于局部执行）</td>
+</tr>
+<tr>
+<td><strong>with_kwargs</strong></td>
+<td>支持</td>
+<td><strong>不支持</strong>（pre_hook 全局版）</td>
+</tr>
+<tr>
+<td><strong>always_call</strong></td>
+<td>支持（forward_hook）</td>
+<td>支持（forward_hook）</td>
+</tr>
+<tr>
+<td><strong>handle.remove()</strong></td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+</table>
+
+<blockquote class="warning">⚠️ <strong>重要限制</strong>：全局 <code>register_module_forward_pre_hook</code> 不支持 <code>prepend</code> 和 <code>with_kwargs</code> 参数。如果需要在全局 pre_hook 中访问 kwargs，需要使用局部 hook 代替。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.4 反向全局 Hook 注册函数</h3>
+
+<p>PyTorch 提供了三种全局反向 hook 注册方式，其中 <code>register_module_backward_hook</code> 已废弃：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [5]:</div>
+<div class="highlight"><pre><span class="c1"># 源代码展示</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== register_module_full_backward_pre_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_full_backward_pre_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_module_full_backward_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_full_backward_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_module_backward_hook 源码（已废弃）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_backward_hook</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== register_module_full_backward_pre_hook 源码 ===</span>
+<span class="go">def register_module_full_backward_pre_hook(</span>
+<span class="go">    hook: Callable[[&quot;Module&quot;, _grad_t], Union[None, _grad_t]],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a backward pre-hook common to all the modules.</span>
+
+<span class="go">    .. warning ::</span>
+<span class="go">        This adds global state to the `nn.module` module</span>
+<span class="go">        and it is only intended for debugging/profiling purposes.</span>
+
+<span class="go">    Hooks registered using this function behave in the same way as those</span>
+<span class="go">    registered by :meth:`torch.nn.Module.register_full_backward_pre_hook`.</span>
+<span class="go">    Refer to its documentation for more details.</span>
+
+<span class="go">    Hooks registered using this function will be called before hooks registered</span>
+<span class="go">    using :meth:`torch.nn.Module.register_full_backward_pre_hook`.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(_global_backward_pre_hooks)</span>
+<span class="go">    _global_backward_pre_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+
+
+<span class="go">=== register_module_full_backward_hook 源码 ===</span>
+<span class="go">def register_module_full_backward_hook(</span>
+<span class="go">    hook: Callable[[&quot;Module&quot;, _grad_t, _grad_t], Union[None, _grad_t]],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a backward hook common to all the modules.</span>
+
+<span class="go">    .. warning ::</span>
+<span class="go">        This adds global state to the `nn.module` module</span>
+<span class="go">        and it is only intended for debugging/profiling purposes.</span>
+
+<span class="go">    Hooks registered using this function behave in the same way as those</span>
+<span class="go">    registered by :meth:`torch.nn.Module.register_full_backward_hook`.</span>
+<span class="go">    Refer to its documentation for more details.</span>
+
+<span class="go">    Hooks registered using this function will be called before hooks registered</span>
+<span class="go">    using :meth:`torch.nn.Module.register_full_backward_hook`.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    global _global_is_full_backward_hook</span>
+<span class="go">    if _global_is_full_backward_hook is False:</span>
+<span class="go">        raise RuntimeError(</span>
+<span class="go">            &quot;Cannot use both regular backward hooks and full backward hooks as a &quot;</span>
+<span class="go">            &quot;global Module hook. Please use only one of them.&quot;</span>
+<span class="go">        )</span>
+
+<span class="go">    _global_is_full_backward_hook = True</span>
+
+<span class="go">    handle = RemovableHandle(_global_backward_hooks)</span>
+<span class="go">    _global_backward_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+
+
+<span class="go">=== register_module_backward_hook 源码（已废弃）===</span>
+<span class="go">def register_module_backward_hook(</span>
+<span class="go">    hook: Callable[[&quot;Module&quot;, _grad_t, _grad_t], Union[None, _grad_t]],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a backward hook common to all the modules.</span>
+
+<span class="go">    This function is deprecated in favor of</span>
+<span class="go">    :func:`torch.nn.modules.module.register_module_full_backward_hook`</span>
+<span class="go">    and the behavior of this function will change in future versions.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    global _global_is_full_backward_hook</span>
+<span class="go">    if _global_is_full_backward_hook is True:</span>
+<span class="go">        raise RuntimeError(</span>
+<span class="go">            &quot;Cannot use both regular backward hooks and full backward hooks as a &quot;</span>
+<span class="go">            &quot;global Module hook. Please use only one of them.&quot;</span>
+<span class="go">        )</span>
+
+<span class="go">    _global_is_full_backward_hook = False</span>
+
+<span class="go">    handle = RemovableHandle(_global_backward_hooks)</span>
+<span class="go">    _global_backward_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.5 注册类全局 Hook — 监控模型结构变化</h3>
+
+<p>PyTorch 还提供了三种"元 Hook"，在参数/buffer/子模块<strong>注册时</strong>触发。这些 hook 在模型构建阶段非常有用：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [6]:</div>
+<div class="highlight"><pre><span class="c1"># 源代码展示</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== register_module_buffer_registration_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_buffer_registration_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_module_module_registration_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_module_registration_hook</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== register_module_parameter_registration_hook 源码 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod_module</span><span class="o">.</span><span class="n">register_module_parameter_registration_hook</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== register_module_buffer_registration_hook 源码 ===</span>
+<span class="go">def register_module_buffer_registration_hook(</span>
+<span class="go">    hook: Callable[..., None],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a buffer registration hook common to all modules.</span>
+
+<span class="go">    .. warning ::</span>
+
+<span class="go">        This adds global state to the `nn.Module` module</span>
+
+<span class="go">    The hook will be called every time :func:`register_buffer` is invoked.</span>
+<span class="go">    It should have the following signature::</span>
+
+<span class="go">        hook(module, name, buffer) -&gt; None or new buffer</span>
+
+<span class="go">    The hook can modify the input or return a single modified value in the hook.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(_global_buffer_registration_hooks)</span>
+<span class="go">    _global_buffer_registration_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+
+
+<span class="go">=== register_module_module_registration_hook 源码 ===</span>
+<span class="go">def register_module_module_registration_hook(</span>
+<span class="go">    hook: Callable[..., None],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a module registration hook common to all modules.</span>
+
+<span class="go">    .. warning ::</span>
+
+<span class="go">        This adds global state to the `nn.Module` module</span>
+
+<span class="go">    The hook will be called every time :func:`register_module` is invoked.</span>
+<span class="go">    It should have the following signature::</span>
+
+<span class="go">        hook(module, name, submodule) -&gt; None or new submodule</span>
+
+<span class="go">    The hook can modify the input or return a single modified value in the hook.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(_global_module_registration_hooks)</span>
+<span class="go">    _global_module_registration_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+
+
+<span class="go">=== register_module_parameter_registration_hook 源码 ===</span>
+<span class="go">def register_module_parameter_registration_hook(</span>
+<span class="go">    hook: Callable[..., None],</span>
+<span class="go">) -&gt; RemovableHandle:</span>
+<span class="go">    r&quot;&quot;&quot;Register a parameter registration hook common to all modules.</span>
+
+<span class="go">    .. warning ::</span>
+
+<span class="go">        This adds global state to the `nn.Module` module</span>
+
+<span class="go">    The hook will be called every time :func:`register_parameter` is invoked.</span>
+<span class="go">    It should have the following signature::</span>
+
+<span class="go">        hook(module, name, param) -&gt; None or new parameter</span>
+
+<span class="go">    The hook can modify the input or return a single modified value in the hook.</span>
+
+<span class="go">    Returns:</span>
+<span class="go">        :class:`torch.utils.hooks.RemovableHandle`:</span>
+<span class="go">            a handle that can be used to remove the added hook by calling</span>
+<span class="go">            ``handle.remove()``</span>
+<span class="go">    &quot;&quot;&quot;</span>
+<span class="go">    handle = RemovableHandle(_global_parameter_registration_hooks)</span>
+<span class="go">    _global_parameter_registration_hooks[handle.id] = hook</span>
+<span class="go">    return handle</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>注册类全局 Hook 对比</strong>：</p>
+
+<table>
+<tr>
+<th>Hook 类型</th>
+<th>触发时机</th>
+<th>hook 签名</th>
+<th>可修改</th>
+</tr>
+<tr>
+<td><code>buffer_registration</code></td>
+<td><code>register_buffer()</code> 调用时</td>
+<td><code>hook(module, name, buffer)</code></td>
+<td>可返回新 buffer</td>
+</tr>
+<tr>
+<td><code>module_registration</code></td>
+<td><code>add_module()</code> / <code>register_module()</code> 调用时</td>
+<td><code>hook(module, name, submodule)</code></td>
+<td>可返回新 submodule</td>
+</tr>
+<tr>
+<td><code>parameter_registration</code></td>
+<td><code>register_parameter()</code> 调用时</td>
+<td><code>hook(module, name, param)</code></td>
+<td>可返回新 param</td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 这些 hook 在 <code>__setattr__</code> 拦截机制（Notebook 01）之上提供了一层<strong>额外的可编程扩展点</strong>，常用于自动给所有参数添加初始化检查、记录模型结构变化等。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.6 全局 Hook 在 <code>_call_impl</code> 中的执行路径</h3>
+
+<p>全局 Hook 与局部 Hook 在 <code>_call_impl</code> 中<strong>按顺序合并执行</strong>。以下是关键代码段：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [7]:</div>
+<div class="highlight"><pre><span class="c1"># 提取 _call_impl 中与全局 hook 相关的代码段</span>
+<span class="n">call_impl_src</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_call_impl</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _call_impl 中全局 hook 相关的关键代码 ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 1. 快速路径检测</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- 快速路径：检测是否有任何 hook ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;if not (self._backward_hooks or self._backward_pre_hooks or self._forward_hooks or self._forward_pre_hooks&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;        or _global_backward_pre_hooks or _global_backward_hooks&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;        or _global_forward_hooks or _global_forward_pre_hooks):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    return forward_call(*args, **kwargs)  # 直接调用 forward&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+
+<span class="c1"># 2. 全局 backward_pre_hooks 收集</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- 反向 pre-hook 收集：全局先于局部 ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# _get_backward_pre_hooks():&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;backward_pre_hooks = []&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;backward_pre_hooks += _global_backward_pre_hooks.values()  # 全局&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;backward_pre_hooks += self._backward_pre_hooks.values()    # 局部&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+
+<span class="c1"># 3. 全局 forward_pre_hooks 执行</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- 前向 pre-hook 执行：全局先于局部 ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;for hook_id, hook in (&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    *_global_forward_pre_hooks.items(),   # 全局优先&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    *self._forward_pre_hooks.items(),     # 局部随后&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    ...&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+
+<span class="c1"># 4. 全局 forward_hooks 执行</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- 前向 hook 执行：全局先于局部 ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;for hook_id, hook in (&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    *_global_forward_hooks.items(),        # 全局优先&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    *self._forward_hooks.items(),          # 局部随后&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    ...&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+
+<span class="c1"># 5. always_call 全局 hook 的异常处理</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- always_call hook 的异常处理（全局 + 局部） ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;except Exception:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    # 先执行全局 always_call hooks&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    for hook_id, hook in _global_forward_hooks.items():&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;        if hook_id in _global_forward_hooks_always_called and hook_id not in called_always_called_hooks:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;            try:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;                hook_result = hook(self, args, result)&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;            except Exception as e:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;                warnings.warn(...)  # 静默吞掉二次异常&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    # 再执行局部 always_call hooks&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    for hook_id, hook in self._forward_hooks.items():&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;        ...&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    raise  # 重新抛出原始异常&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _call_impl 中全局 hook 相关的关键代码 ===</span>
+
+<span class="go">--- 快速路径：检测是否有任何 hook ---</span>
+<span class="go">if not (self._backward_hooks or self._backward_pre_hooks or self._forward_hooks or self._forward_pre_hooks</span>
+<span class="go">        or _global_backward_pre_hooks or _global_backward_hooks</span>
+<span class="go">        or _global_forward_hooks or _global_forward_pre_hooks):</span>
+<span class="go">    return forward_call(*args, **kwargs)  # 直接调用 forward</span>
+
+<span class="go">--- 反向 pre-hook 收集：全局先于局部 ---</span>
+<span class="go"># _get_backward_pre_hooks():</span>
+<span class="go">backward_pre_hooks = []</span>
+<span class="go">backward_pre_hooks += _global_backward_pre_hooks.values()  # 全局</span>
+<span class="go">backward_pre_hooks += self._backward_pre_hooks.values()    # 局部</span>
+
+<span class="go">--- 前向 pre-hook 执行：全局先于局部 ---</span>
+<span class="go">for hook_id, hook in (</span>
+<span class="go">    *_global_forward_pre_hooks.items(),   # 全局优先</span>
+<span class="go">    *self._forward_pre_hooks.items(),     # 局部随后</span>
+<span class="go">):</span>
+<span class="go">    ...</span>
+
+<span class="go">--- 前向 hook 执行：全局先于局部 ---</span>
+<span class="go">for hook_id, hook in (</span>
+<span class="go">    *_global_forward_hooks.items(),        # 全局优先</span>
+<span class="go">    *self._forward_hooks.items(),          # 局部随后</span>
+<span class="go">):</span>
+<span class="go">    ...</span>
+
+<span class="go">--- always_call hook 的异常处理（全局 + 局部） ---</span>
+<span class="go">except Exception:</span>
+<span class="go">    # 先执行全局 always_call hooks</span>
+<span class="go">    for hook_id, hook in _global_forward_hooks.items():</span>
+<span class="go">        if hook_id in _global_forward_hooks_always_called and hook_id not in called_always_called_hooks:</span>
+<span class="go">            try:</span>
+<span class="go">                hook_result = hook(self, args, result)</span>
+<span class="go">            except Exception as e:</span>
+<span class="go">                warnings.warn(...)  # 静默吞掉二次异常</span>
+<span class="go">    # 再执行局部 always_call hooks</span>
+<span class="go">    for hook_id, hook in self._forward_hooks.items():</span>
+<span class="go">        ...</span>
+<span class="go">    raise  # 重新抛出原始异常</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>全局 Hook 执行流程图</strong>：</p>
+
+<pre><code>_call_impl(*args, **kwargs)
+│
+├── 快速路径检查
+│   └── 无任何 hook（全局 + 局部）→ 直接 forward(*args, **kwargs)
+│
+├── [1] backward_pre_hooks 收集
+│   └── _get_backward_pre_hooks()
+│       ├── _global_backward_pre_hooks.values()  ← 全局在先
+│       └── self._backward_pre_hooks.values()    ← 局部在后
+│
+├── [2] forward_pre_hooks 执行
+│   ├── *_global_forward_pre_hooks.items()  ← 全局先执行
+│   └── *self._forward_pre_hooks.items()    ← 局部后执行
+│
+├── [3] backward_hooks 注册
+│   └── _get_backward_hooks()
+│       ├── 根据 _global_is_full_backward_hook 区分 full/non-full
+│       └── BackwardHook 对象注册到输出 grad_fn
+│
+├── [4] forward(*args, **kwargs)  ← 核心计算
+│
+├── [5] forward_hooks 执行
+│   ├── *_global_forward_hooks.items()  ← 全局先执行
+│   └── *self._forward_hooks.items()    ← 局部后执行
+│
+├── [6] 返回 result
+│
+└── 异常处理：执行 always_call hooks（全局 → 局部），然后 re-raise</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part B: 机制分析</h2>
+
+<h3>B.1 全局 Hook vs 局部 Hook — 架构对比</h3>
+
+<pre><code>┌──────────────────────────────────────────────────────────┐
+│                    局部 Hook（Per-Module）                │
+│                                                          │
+│  Module A                     Module B                   │
+│  ┌─────────────────┐         ┌─────────────────┐        │
+│  │ _forward_hooks  │         │ _forward_hooks  │        │
+│  │ _backward_hooks │         │ _backward_hooks │        │
+│  │ ...             │         │ ...             │        │
+│  └─────────────────┘         └─────────────────┘        │
+│  每个模块独立管理自己的 hook                              │
+│  注册方式：module.register_forward_hook(fn)              │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│                   全局 Hook（Module-Level）               │
+│                                                          │
+│  torch.nn.modules.module (模块作用域)                     │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ _global_forward_hooks: OrderedDict                │   │
+│  │ _global_forward_pre_hooks: OrderedDict            │   │
+│  │ _global_backward_hooks: OrderedDict               │   │
+│  │ _global_backward_pre_hooks: OrderedDict           │   │
+│  └──────────────────────────────────────────────────┘   │
+│       ▲                ▲                ▲               │
+│       │                │                │               │
+│  ┌────┴────┐      ┌────┴────┐      ┌────┴────┐         │
+│  │ Module A│      │ Module B│      │ Module C│         │
+│  └─────────┘      └─────────┘      └─────────┘         │
+│  所有模块共享同一份全局 hook 注册表                       │
+│  注册方式：register_module_forward_hook(fn)              │
+└──────────────────────────────────────────────────────────┘</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.2 执行顺序详解</h3>
+
+<p>在 <code>_call_impl</code> 中，全局 hook 和局部 hook 的执行顺序遵循<strong>全局优先</strong>原则：</p>
+
+<table>
+<tr>
+<th>阶段</th>
+<th>执行顺序</th>
+<th>源码证据</th>
+</tr>
+<tr>
+<td><strong>forward_pre</strong></td>
+<td>1. 全局 pre_hooks (按注册顺序) → 2. 局部 pre_hooks</td>
+<td><code><em>_global_forward_pre_hooks.items(), </em>self._forward_pre_hooks.items()</code></td>
+</tr>
+<tr>
+<td><strong>forward</strong></td>
+<td><code>forward(*args, **kwargs)</code></td>
+<td>核心计算</td>
+</tr>
+<tr>
+<td><strong>forward_post</strong></td>
+<td>1. 全局 forward_hooks → 2. 局部 forward_hooks</td>
+<td><code><em>_global_forward_hooks.items(), </em>self._forward_hooks.items()</code></td>
+</tr>
+<tr>
+<td><strong>backward_pre</strong></td>
+<td>1. 全局 backward_pre_hooks → 2. 局部 backward_pre_hooks</td>
+<td><code>_global_backward_pre_hooks.values()</code> + <code>self._backward_pre_hooks.values()</code></td>
+</tr>
+<tr>
+<td><strong>backward</strong></td>
+<td>1. 全局 backward_hooks → 2. 局部 backward_hooks</td>
+<td><code>_global_backward_hooks.values()</code> + <code>self._backward_hooks.values()</code></td>
+</tr>
+</table>
+
+<p>完整的前向传播 hook 执行顺序：</p>
+
+<pre><code>对于每个 Module 的 __call__:
+  ┌─────────────────────────────────────────┐
+  │ 全局 forward_pre_hooks[0]   ← 最先执行  │
+  │ 全局 forward_pre_hooks[1]              │
+  │ ...                                    │
+  │ 局部 forward_pre_hooks[0]              │
+  │ 局部 forward_pre_hooks[1]              │
+  │ ...                                    │
+  ├─────────────────────────────────────────┤
+  │         forward(*args, **kwargs)        │
+  ├─────────────────────────────────────────┤
+  │ 全局 forward_hooks[0]                   │
+  │ 全局 forward_hooks[1]                  │
+  │ ...                                    │
+  │ 局部 forward_hooks[0]                  │
+  │ 局部 forward_hooks[1]                  │
+  │ ...                    ← 最后执行      │
+  └─────────────────────────────────────────┘</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.3 <code>_global_is_full_backward_hook</code> 的互斥设计</h3>
+
+<p>PyTorch 使用一个模块级标志 <code>_global_is_full_backward_hook</code> 来<strong>强制全局 backward hook 的类型一致性</strong>：</p>
+
+<ul>
+<li><code>None</code>：尚未注册任何全局 backward hook（初始状态）</li>
+<li><code>True</code>：已注册 <code>full_backward_hook</code>，<strong>禁止</strong>再注册旧的 <code>backward_hook</code></li>
+<li><code>False</code>：已注册旧的 <code>backward_hook</code>，<strong>禁止</strong>再注册 <code>full_backward_hook</code></li>
+</ul>
+
+<pre><code># register_module_full_backward_hook 中:
+global _global_is_full_backward_hook
+if _global_is_full_backward_hook is False:
+    raise RuntimeError(&quot;Cannot use both regular backward hooks and full backward hooks...&quot;)
+_global_is_full_backward_hook = True
+
+# register_module_backward_hook 中:
+global _global_is_full_backward_hook
+if _global_is_full_backward_hook is True:
+    raise RuntimeError(&quot;Cannot use both regular backward hooks and full backward hooks...&quot;)
+_global_is_full_backward_hook = False</code></pre>
+
+<blockquote class="tip">💡 <strong>设计意图</strong>：<code>full_backward_hook</code> 和旧的 <code>backward_hook</code> 共享同一个 <code>_global_backward_hooks</code> OrderedDict，但它们的执行语义不同（full hook 接收 grad_input 和 grad_output，通过 <code>BackwardHook</code> 机制整合；旧 hook 直接注册到 <code>grad_fn</code>）。混合使用会导致<strong>执行顺序和语义混乱</strong>，因此 PyTorch 在注册时就强制互斥。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.4 全局 Hook 的典型应用场景</h3>
+
+<table>
+<tr>
+<th>场景</th>
+<th>使用的 Hook</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>全局 Profiler</strong></td>
+<td><code>register_module_forward_pre_hook</code> + <code>register_module_forward_hook</code></td>
+<td>统计所有模块的执行时间、FLOPs</td>
+</tr>
+<tr>
+<td><strong>激活值 Debug</strong></td>
+<td><code>register_module_forward_hook</code></td>
+<td>检查所有层的输出是否有 NaN/Inf</td>
+</tr>
+<tr>
+<td><strong>梯度监控</strong></td>
+<td><code>register_module_full_backward_hook</code></td>
+<td>监控所有参数的梯度范数</td>
+</tr>
+<tr>
+<td><strong>统一输入预处理</strong></td>
+<td><code>register_module_forward_pre_hook</code></td>
+<td>对所有模块的输入做统一变换</td>
+</tr>
+<tr>
+<td><strong>模型结构快照</strong></td>
+<td><code>register_module_module_registration_hook</code></td>
+<td>自动记录模型子模块的添加过程</td>
+</tr>
+<tr>
+<td><strong>参数初始化审计</strong></td>
+<td><code>register_module_parameter_registration_hook</code></td>
+<td>确保所有参数都经过特定初始化</td>
+</tr>
+<tr>
+<td><strong>量化感知训练</strong></td>
+<td>组合使用</td>
+<td>在 forward 前后插入 fake_quant 操作</td>
+</tr>
+</table>
+
+<blockquote class="warning">⚠️ <strong>PyTorch 官方警告</strong>：全局 hook "adds global state to the nn.module module and is only intended for debugging/profiling purposes"。在生产代码中应优先使用局部 hook。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part C: 动手实验</h2>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 1：全局 Hook 实现简易 Profiler</h3>
+
+<p>用全局 forward_pre_hook 和 forward_hook 统计模型中<strong>所有 Linear 层</strong>的执行时间：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [8]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">register_module_forward_pre_hook</span><span class="p">,</span>
+    <span class="n">register_module_forward_hook</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 构建一个较深的模型用于 profiling</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DeepMLP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activations</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">linear</span><span class="p">,</span> <span class="n">act</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">activations</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">act</span><span class="p">(</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">DeepMLP</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;模型包含 </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">model</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">))</span><span class="si">}</span><span class="s2"> 个 Linear 层&quot;</span><span class="p">)</span>
+
+<span class="c1"># 全局 profiler 状态</span>
+<span class="n">profiler_stats</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># module_id → {count, total_time}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">profiler_pre</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;记录模块 forward 开始时间&quot;&quot;&quot;</span>
+    <span class="c1"># 使用 id(module) 作为 key</span>
+    <span class="n">module</span><span class="o">.</span><span class="n">_profiler_t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">profiler_post</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;记录模块 forward 结束时间，累加耗时&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s1">&#39;_profiler_t0&#39;</span><span class="p">):</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">module</span><span class="o">.</span><span class="n">_profiler_t0</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">profiler_stats</span><span class="p">:</span>
+            <span class="n">profiler_stats</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;total_time&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
+        <span class="n">profiler_stats</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">profiler_stats</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;total_time&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">elapsed</span>
+        <span class="k">del</span> <span class="n">module</span><span class="o">.</span><span class="n">_profiler_t0</span>
+
+<span class="c1"># 注册全局 hook</span>
+<span class="n">pre_handle</span> <span class="o">=</span> <span class="n">register_module_forward_pre_hook</span><span class="p">(</span><span class="n">profiler_pre</span><span class="p">)</span>
+<span class="n">post_handle</span> <span class="o">=</span> <span class="n">register_module_forward_hook</span><span class="p">(</span><span class="n">profiler_post</span><span class="p">)</span>
+
+<span class="c1"># 运行多次 forward</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># 打印 profiler 结果</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Profiler 结果（100 次 forward）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;模块&#39;</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;调用次数&#39;</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;总耗时(ms)&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;平均(μs)&#39;</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">profiler_stats</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;total_time&#39;</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">avg_us</span> <span class="o">=</span> <span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;total_time&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="mf">1e6</span>
+    <span class="n">total_ms</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;total_time&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1e3</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">total_ms</span><span class="si">:</span><span class="s2">&lt;12.4f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">avg_us</span><span class="si">:</span><span class="s2">&lt;10.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理全局 hook（重要！否则会影响后续实验）</span>
+<span class="n">pre_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">post_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ 全局 hook 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">模型包含 10 个 Linear 层</span>
+
+<span class="go">=== Profiler 结果（100 次 forward）===</span>
+<span class="go">模块              调用次数       总耗时(ms)     平均(μs)</span>
+<span class="go">--------------------------------------------------</span>
+<span class="go">Linear          1000        2.4520       2.5</span>
+<span class="go">ReLU            1000        1.8901       1.9</span>
+
+<span class="go">✅ 全局 hook 已清理</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>观察</strong>：</p>
+<ul>
+<li>全局 hook 对<strong>所有</strong> Linear 和 ReLU 模块生效，无需逐个注册</li>
+<li>100 次 forward × 10 层 = 1000 次 hook 调用</li>
+<li>使用 <code>id(module)</code> 作为 key 可以区分不同的模块实例</li>
+</ul>
+
+<blockquote class="warning">⚠️ <strong>注意</strong>：全局 hook 的状态是持久的。实验结束后务必 <code>handle.remove()</code>，否则 hook 会继续影响后续代码。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 2：全局 forward_pre_hook 修改所有模块输入</h3>
+
+<p>场景：对模型中所有 Linear 层的输入统一做归一化（减均值除以标准差）：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [9]:</div>
+<div class="highlight"><pre><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_module_forward_pre_hook</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">DeepMLP</span><span class="p">()</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+
+<span class="c1"># 先记录原始输出</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">out_original</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># 注册全局 pre_hook：对所有 Linear 输入做 LayerNorm 风格的归一化</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_input</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;对输入做均值归一化&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">):</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">std</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-5</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="p">(</span><span class="n">inp</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">std</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">normalized</span><span class="p">,)</span>  <span class="c1"># 返回修改后的 args</span>
+    <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># 不对非 Linear 模块做修改</span>
+
+<span class="n">norm_handle</span> <span class="o">=</span> <span class="n">register_module_forward_pre_hook</span><span class="p">(</span><span class="n">normalize_input</span><span class="p">)</span>
+
+<span class="c1"># 运行归一化后的 forward</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">out_normalized</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># 对比</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始输出的统计量:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  mean: </span><span class="si">{</span><span class="n">out_original</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  std:  </span><span class="si">{</span><span class="n">out_original</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">归一化输入后输出的统计量:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  mean: </span><span class="si">{</span><span class="n">out_normalized</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  std:  </span><span class="si">{</span><span class="n">out_normalized</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">两者不相同: </span><span class="si">{</span><span class="ow">not</span><span class="w"> </span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">out_original</span><span class="p">,</span><span class="w"> </span><span class="n">out_normalized</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理</span>
+<span class="n">norm_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 全局 hook 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">原始输出的统计量:</span>
+<span class="go">  mean: -0.320968</span>
+<span class="go">  std:  3.768311</span>
+
+<span class="go">归一化输入后输出的统计量:</span>
+<span class="go">  mean: -0.051899</span>
+<span class="go">  std:  1.387242</span>
+
+<span class="go">两者不相同: True</span>
+<span class="go">✅ 全局 hook 已清理</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 3：全局 vs 局部 Hook 执行顺序验证</h3>
+
+<p>通过日志精确验证"全局优先于局部"的执行顺序：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [10]:</div>
+<div class="highlight"><pre><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">register_module_forward_pre_hook</span><span class="p">,</span>
+    <span class="n">register_module_forward_hook</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 创建一个简单的单层模型</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+<span class="n">execution_log</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="c1"># --- 注册局部 hook ---</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">local_pre</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  [局部 pre_hook]  </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">local_post</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  [局部 post_hook] </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="n">local_pre_handle</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">register_forward_pre_hook</span><span class="p">(</span><span class="n">local_pre</span><span class="p">)</span>
+<span class="n">local_post_handle</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">register_forward_hook</span><span class="p">(</span><span class="n">local_post</span><span class="p">)</span>
+
+<span class="c1"># --- 注册全局 hook ---</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">global_pre</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  [全局 pre_hook]  </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">global_post</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  [全局 post_hook] </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="n">global_pre_handle</span> <span class="o">=</span> <span class="n">register_module_forward_pre_hook</span><span class="p">(</span><span class="n">global_pre</span><span class="p">)</span>
+<span class="n">global_post_handle</span> <span class="o">=</span> <span class="n">register_module_forward_hook</span><span class="p">(</span><span class="n">global_post</span><span class="p">)</span>
+
+<span class="c1"># 执行 forward</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 执行 forward ===&quot;</span><span class="p">)</span>
+<span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;--- 开始 forward ---&#39;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">execution_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;--- 结束 forward ---&#39;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">执行顺序日志：&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">execution_log</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ 验证: 全局 hook 确实在局部 hook 之前执行&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理所有 hook</span>
+<span class="n">global_pre_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">global_post_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">local_pre_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">local_post_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 所有 hook 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 执行 forward ===</span>
+
+<span class="go">执行顺序日志：</span>
+<span class="go">--- 开始 forward ---</span>
+<span class="go">  [全局 pre_hook]  Linear</span>
+<span class="go">  [局部 pre_hook]  Linear</span>
+<span class="go">  [全局 post_hook] Linear</span>
+<span class="go">  [局部 post_hook] Linear</span>
+<span class="go">--- 结束 forward ---</span>
+
+<span class="go">✅ 验证: 全局 hook 确实在局部 hook 之前执行</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 4：Registration Hook — 监控模型构建过程</h3>
+
+<p>使用全局 registration hook 自动记录所有参数、buffer、子模块的创建过程。这在调试复杂模型构建逻辑时非常有用：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [11]:</div>
+<div class="highlight"><pre><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">register_module_parameter_registration_hook</span><span class="p">,</span>
+    <span class="n">register_module_buffer_registration_hook</span><span class="p">,</span>
+    <span class="n">register_module_module_registration_hook</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 清空可能残留的全局 hook 状态</span>
+<span class="c1"># （如果之前实验有残留，先清理）</span>
+<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">mod_module</span><span class="o">.</span><span class="n">_global_parameter_registration_hooks</span><span class="p">,</span>
+          <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_buffer_registration_hooks</span><span class="p">,</span>
+          <span class="n">mod_module</span><span class="o">.</span><span class="n">_global_module_registration_hooks</span><span class="p">]:</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+<span class="c1"># 注册日志记录</span>
+<span class="n">reg_log</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">log_parameter</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+    <span class="n">reg_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  📌 Parameter: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">log_buffer</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">buffer</span><span class="p">):</span>
+    <span class="n">reg_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  💾 Buffer:    </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">buffer</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">log_module</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">submodule</span><span class="p">):</span>
+    <span class="n">reg_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  📦 Submodule: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> → </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">submodule</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="n">param_handle</span> <span class="o">=</span> <span class="n">register_module_parameter_registration_hook</span><span class="p">(</span><span class="n">log_parameter</span><span class="p">)</span>
+<span class="n">buf_handle</span> <span class="o">=</span> <span class="n">register_module_buffer_registration_hook</span><span class="p">(</span><span class="n">log_buffer</span><span class="p">)</span>
+<span class="n">mod_handle</span> <span class="o">=</span> <span class="n">register_module_module_registration_hook</span><span class="p">(</span><span class="n">log_module</span><span class="p">)</span>
+
+<span class="c1"># 现在构建一个模型，观察注册日志</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 构建模型过程中触发的全局 hook ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ObservedModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[__init__ 开始]&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;counter&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[__init__ 结束]&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&gt;&gt;&gt; 实例化 ObservedModel&quot;</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">ObservedModel</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 注册日志（共 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">reg_log</span><span class="p">)</span><span class="si">}</span><span class="s2"> 条）===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">reg_log</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">💡 每个 register_parameter / register_buffer / add_module 调用都会触发对应的全局 hook&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   可以在此处做参数校验、初始化策略强制、模型结构快照等操作&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理</span>
+<span class="n">param_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">buf_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">mod_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 全局 registration hook 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 构建模型过程中触发的全局 hook ===</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">实例化</span> <span class="n">ObservedModel</span>
+<span class="go">[__init__ 开始]</span>
+<span class="go">[__init__ 结束]</span>
+
+<span class="go">=== 注册日志（共 6 条）===</span>
+<span class="go">  📌 Parameter: Conv2d.weight shape=[16, 3, 3, 3]</span>
+<span class="go">  📌 Parameter: Conv2d.bias shape=[16]</span>
+<span class="go">  📦 Submodule: ObservedModel.conv → Conv2d</span>
+<span class="go">  📌 Parameter: BatchNorm2d.weight shape=[16]</span>
+<span class="go">  📌 Parameter: BatchNorm2d.bias shape=[16]</span>
+<span class="go">  📦 Submodule: ObservedModel.bn → BatchNorm2d</span>
+<span class="go">  💾 Buffer:    ObservedModel.counter shape=[1]</span>
+
+<span class="go">💡 每个 register_parameter / register_buffer / add_module 调用都会触发对应的全局 hook</span>
+<span class="go">   可以在此处做参数校验、初始化策略强制、模型结构快照等操作</span>
+<span class="go">✅ 全局 registration hook 已清理</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>观察</strong>：</p>
+<ul>
+<li>registration hook 在 <code>__init__</code> 执行期间同步触发</li>
+<li>参数总是先注册，然后是子模块（因为 <code>__setattr__</code> 先设置参数，再在 <code>__init__</code> 完成时 <code>add_module</code>）</li>
+<li>通过 buffer hook 可以追踪所有非参数持久化状态</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 5：<code>always_call=True</code> 全局 Hook 的异常处理</h3>
+
+<p>验证当 forward 抛出异常时，标记了 <code>always_call=True</code> 的全局 hook 仍然会执行：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [12]:</div>
+<div class="highlight"><pre><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_module_forward_hook</span>
+
+<span class="c1"># 清空残留状态</span>
+<span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_hooks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<span class="n">mod_module</span><span class="o">.</span><span class="n">_global_forward_hooks_always_called</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+<span class="c1"># 创建一个会抛出异常的模块</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FailingModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;模拟 forward 中的异常！&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">FailingModule</span><span class="p">()</span>
+
+<span class="c1"># 注册全局 always_call hook</span>
+<span class="n">always_log</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">emergency_global_hook</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">always_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;🚨 全局 always_call hook: module=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">, output is None=</span><span class="si">{</span><span class="n">output</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="kc">None</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="c1"># 同时注册一个局部的 always_call hook 做对比</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">emergency_local_hook</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">always_log</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;📍 局部 always_call hook: module=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">, output is None=</span><span class="si">{</span><span class="n">output</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="kc">None</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="n">global_handle</span> <span class="o">=</span> <span class="n">register_module_forward_hook</span><span class="p">(</span><span class="n">emergency_global_hook</span><span class="p">,</span> <span class="n">always_call</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">local_handle</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">register_forward_hook</span><span class="p">(</span><span class="n">emergency_local_hook</span><span class="p">,</span> <span class="n">always_call</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>  <span class="c1"># sum &gt; 0 → 会触发异常</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 执行会抛出异常的 forward ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ 捕获异常: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== always_call hook 执行日志 ===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">always_log</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">💡 全局 always_call hook 先于局部 always_call hook 执行&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   即使 forward 抛出异常，always_call hook 仍然被调用&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   这对于调试、资源清理、异常日志等场景非常有用&quot;</span><span class="p">)</span>
+
+<span class="c1"># 清理</span>
+<span class="n">global_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">local_handle</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Hook 已清理&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 执行会抛出异常的 forward ===</span>
+
+<span class="go">❌ 捕获异常: 模拟 forward 中的异常！</span>
+
+<span class="go">=== always_call hook 执行日志 ===</span>
+<span class="go">🚨 全局 always_call hook: module=FailingModule, output is None=True</span>
+<span class="go">🚨 全局 always_call hook: module=Linear, output is None=True</span>
+<span class="go">📍 局部 always_call hook: module=Linear, output is None=True</span>
+
+<span class="go">💡 全局 always_call hook 先于局部 always_call hook 执行</span>
+<span class="go">   即使 forward 抛出异常，always_call hook 仍然被调用</span>
+<span class="go">   这对于调试、资源清理、异常日志等场景非常有用</span>
+<span class="go">✅ Hook 已清理</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>观察</strong>：</p>
+<ul>
+<li>全局 <code>always_call</code> hook 在异常发生后被调用（<code>output is None=True</code>）</li>
+<li>全局 hook 在局部 hook 之前执行（即使在异常处理路径中）</li>
+<li><code>FailingModule</code> 本身和子模块 <code>Linear</code> 的全局 hook <strong>都会被触发</strong>，因为全局 hook 作用于<strong>所有</strong> Module</li>
+</ul>
+
+<blockquote class="warning">⚠️ <strong>注意</strong>：<code>_call_impl</code> 的异常处理代码中，<code>always_call</code> hook 如果也抛异常，该异常会被 <code>warnings.warn()</code> 静默吞掉，避免掩盖原始异常。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part D: 小结</h2>
+
+<h3>全局 Hook 系统全景图</h3>
+
+<pre><code>                        register_module_*
+                              │
+            ┌─────────────────┼─────────────────┐
+            │                 │                 │
+    ┌───────▼──────┐  ┌──────▼──────┐  ┌───────▼──────┐
+    │  前向传播     │  │  反向传播    │  │  注册阶段     │
+    │  Hook        │  │  Hook       │  │  Hook        │
+    └───────┬──────┘  └──────┬──────┘  └───────┬──────┘
+            │                │                  │
+    ┌───────▼──────┐  ┌──────▼──────┐  ┌───────▼──────┐
+    │ pre_hook     │  │ pre_hook    │  │ parameter    │
+    │ forward_hook │  │ backward    │  │ buffer       │
+    │ (always_call)│  │ (full/旧)   │  │ module       │
+    └──────────────┘  └─────────────┘  └──────────────┘
+            │                │                  │
+            └────────────────┼──────────────────┘
+                             │
+                    所有 Module 实例
+              (fc1, fc2, conv, bn, ...)</code></pre>
+
+<h3>要点清单</h3>
+
+<ul>
+<li><input type="checkbox" checked disabled> 全局 hook 注册表是<strong>模块级别</strong>的 <code>OrderedDict</code>，存储在 <code>torch.nn.modules.module</code> 作用域</li>
+<li><input type="checkbox" checked disabled> 全局 hook <strong>先于</strong>局部 hook 执行（通过 <code><em>_global_</em>_hooks.items(), <em>self._</em>_hooks.items()</code> 元组拼接实现）</li>
+<li><input type="checkbox" checked disabled> <code>_WrappedHook</code> 用于<strong>局部</strong> backward hook，将 module 引用绑定到回调中（使用弱引用避免内存泄漏）</li>
+<li><input type="checkbox" checked disabled> 全局 hook <strong>不需要</strong> <code>_WrappedHook</code> 包装——用户函数直接接收 module 参数</li>
+<li><input type="checkbox" checked disabled> <code>_global_is_full_backward_hook</code> 标志强制全局 backward hook 的类型互斥</li>
+<li><input type="checkbox" checked disabled> <code>register_module_backward_hook</code> 已废弃，应使用 <code>register_module_full_backward_hook</code></li>
+<li><input type="checkbox" checked disabled> <code>register_module_forward_hook</code> 支持 <code>always_call=True</code> 和 <code>with_kwargs=True</code></li>
+<li><input type="checkbox" checked disabled> Registration hook 在模型<strong>构建阶段</strong>同步触发，可用于参数校验和结构监控</li>
+<li><input type="checkbox" checked disabled> 全局 hook 的 <code>always_call</code> 在异常处理中<strong>全局先于局部</strong>执行</li>
+<li><input type="checkbox" checked disabled> <code>handle.remove()</code> 管理全局 hook 的生命周期，避免持久副作用</li>
+</ul>
+
+<h3>全局 vs 局部 Hook 速查表</h3>
+
+<table>
+<tr>
+<th>维度</th>
+<th>全局 Hook</th>
+<th>局部 Hook</th>
+</tr>
+<tr>
+<td><strong>注册方式</strong></td>
+<td><code>register_module_*_hook(fn)</code></td>
+<td><code>module.register_*_hook(fn)</code></td>
+</tr>
+<tr>
+<td><strong>作用范围</strong></td>
+<td>所有 Module 实例</td>
+<td>单个 Module 实例</td>
+</tr>
+<tr>
+<td><strong>存储位置</strong></td>
+<td><code>module.py</code> 模块级 OrderedDict</td>
+<td>Module 实例的 OrderedDict</td>
+</tr>
+<tr>
+<td><strong>执行优先级</strong></td>
+<td><strong>先执行</strong></td>
+<td><strong>后执行</strong></td>
+</tr>
+<tr>
+<td><strong>prepend 参数</strong></td>
+<td>不支持（始终先于局部）</td>
+<td>支持</td>
+</tr>
+<tr>
+<td><strong>官方推荐</strong></td>
+<td>仅用于 debugging/profiling</td>
+<td>生产代码首选</td>
+</tr>
+<tr>
+<td><strong>典型场景</strong></td>
+<td>全局 profiler、NaN 检测、梯度监控</td>
+<td>特征可视化、梯度修改、层特定逻辑</td>
+</tr>
+</table>
+
+<h3>常见陷阱</h3>
+
+<table>
+<tr>
+<th>陷阱</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>忘记 remove()</strong></td>
+<td>全局 hook 是持久状态，忘记移除会影响后续所有代码</td>
+</tr>
+<tr>
+<td><strong>全局 hook 覆盖问题</strong></td>
+<td>重复注册同名功能的全局 hook 会导致多次执行</td>
+</tr>
+<tr>
+<td><strong>新旧 backward hook 混用</strong></td>
+<td>会触发 RuntimeError，必须在项目启动时就选定一种</td>
+</tr>
+<tr>
+<td><strong>全局 pre_hook 不支持 with_kwargs</strong></td>
+<td>需要访问 kwargs 时必须使用局部 hook</td>
+</tr>
+<tr>
+<td><strong>全局 hook 中的异常</strong></td>
+<td>前向 hook 中的异常不会被 <code>always_call</code> 捕获，会直接中断 forward</td>
+</tr>
+</table>
+
+<h3>与前后 Notebook 的关联</h3>
+
+<ul>
+<li><strong>Notebook 06</strong>（Forward 调用链与 Hook）：局部 hook 的基础知识，<code>_call_impl</code> 的完整流程</li>
+<li><strong>Notebook 07</strong>（状态序列化）：序列化 hook 与全局 hook 共享相似的 <code>OrderedDict</code> + <code>RemovableHandle</code> 架构</li>
+<li><strong>Notebook 09</strong>（容器类）：容器类如何与全局 hook 交互（Sequential 中的子模块也会触发全局 hook）</li>
+<li><strong>Notebook 10</strong>（编译系统）：<code>torch.compile</code> 如何改变全局 hook 的执行路径</li>
+</ul>
+
+<h3>延伸阅读</h3>
+
+<ul>
+<li><a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank">PyTorch 源码 module.py — 全局 hook 声明</a></li>
+<li><a href="https://pytorch.org/docs/stable/nn.html#hooks-for-forward-and-backward" target="_blank">PyTorch Hook 文档</a></li>
+<li><a href="https://pytorch.org/docs/stable/profiler.html" target="_blank">PyTorch Profiler 文档</a>（PyTorch 官方的 profiler 内部使用了类似的 hook 机制）</li>
+</ul>
+</div>
+
     </div>
 </main>
-<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a> · <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a></p></footer>
 <script src="../../js/main.js"></script>
 </body>
 </html>
