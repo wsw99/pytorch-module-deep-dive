@@ -5,6 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>09 · 容器类 — PyTorch module.py Deep Dive</title>
     <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        /* ============================================================
+           Pygments syntax highlighting — uses site CSS variables
+           ============================================================ */
+        pre { line-height: 125%; }
+td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+.highlight .hll { background-color: #ffffcc }
+.highlight { background: #f8f8f8; }
+.highlight .c { color: #3D7B7B; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #F00 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666 } /* Operator */
+.highlight .ch { color: #3D7B7B; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #3D7B7B; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #9C6500 } /* Comment.Preproc */
+.highlight .cpf { color: #3D7B7B; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #3D7B7B; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #3D7B7B; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .ges { font-weight: bold; font-style: italic } /* Generic.EmphStrong */
+.highlight .gr { color: #E40000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #008400 } /* Generic.Inserted */
+.highlight .go { color: #717171 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #04D } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #687822 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #00F; font-weight: bold } /* Name.Class */
+.highlight .no { color: #800 } /* Name.Constant */
+.highlight .nd { color: #A2F } /* Name.Decorator */
+.highlight .ni { color: #717171; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #CB3F38; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #00F } /* Name.Function */
+.highlight .nl { color: #767600 } /* Name.Label */
+.highlight .nn { color: #00F; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #A2F; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #BBB } /* Text.Whitespace */
+.highlight .mb { color: #666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666 } /* Literal.Number.Float */
+.highlight .mh { color: #666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #AA5D1F; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #A45A77; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #A45A77 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #00F } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666 } /* Literal.Number.Integer.Long */
+
+        /* Override pygments colors with site theme variables */
+        .highlight { background: var(--code-bg); }
+        .highlight .k, .highlight .kn, .highlight .kd, .highlight .kc, .highlight .kr, .highlight .kt { color: #d73a49; font-weight: bold; }
+        .highlight .n, .highlight .nb, .highlight .bp, .highlight .fm { color: #24292e; }
+        .highlight .s, .highlight .s1, .highlight .s2, .highlight .sa, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx { color: #032f62; }
+        .highlight .mi, .highlight .mf, .highlight .mh, .highlight .mo, .highlight .il, .highlight .m { color: #005cc5; }
+        .highlight .c, .highlight .c1, .highlight .cm, .highlight .cp, .highlight .cs, .highlight .ch { color: #6a737d; font-style: italic; }
+        .highlight .o, .highlight .ow, .highlight .p { color: #24292e; }
+        .highlight .nf, .highlight .nc, .highlight .ne { color: #6f42c1; }
+        .highlight .nn, .highlight .no { color: #005cc5; }
+        .highlight .nd { color: #6f42c1; }
+        .highlight .vm, .highlight .nb { color: #005cc5; }
+        .highlight .err { color: #cb2431; }
+
+        /* Dark mode overrides */
+        [data-theme="dark"] .highlight .k, [data-theme="dark"] .highlight .kn,
+        [data-theme="dark"] .highlight .kd, [data-theme="dark"] .highlight .kc,
+        [data-theme="dark"] .highlight .kr, [data-theme="dark"] .highlight .kt { color: #ff7b72; font-weight: bold; }
+        [data-theme="dark"] .highlight .n, [data-theme="dark"] .highlight .nb,
+        [data-theme="dark"] .highlight .bp, [data-theme="dark"] .highlight .fm { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .s, [data-theme="dark"] .highlight .s1,
+        [data-theme="dark"] .highlight .s2, [data-theme="dark"] .highlight .sa,
+        [data-theme="dark"] .highlight .sb, [data-theme="dark"] .highlight .sc,
+        [data-theme="dark"] .highlight .sd, [data-theme="dark"] .highlight .se,
+        [data-theme="dark"] .highlight .sh, [data-theme="dark"] .highlight .si,
+        [data-theme="dark"] .highlight .sx { color: #a5d6ff; }
+        [data-theme="dark"] .highlight .mi, [data-theme="dark"] .highlight .mf,
+        [data-theme="dark"] .highlight .mh, [data-theme="dark"] .highlight .mo,
+        [data-theme="dark"] .highlight .il, [data-theme="dark"] .highlight .m { color: #79c0ff; }
+        [data-theme="dark"] .highlight .c, [data-theme="dark"] .highlight .c1,
+        [data-theme="dark"] .highlight .cm, [data-theme="dark"] .highlight .cp,
+        [data-theme="dark"] .highlight .cs, [data-theme="dark"] .highlight .ch { color: #8b949e; font-style: italic; }
+        [data-theme="dark"] .highlight .o, [data-theme="dark"] .highlight .ow,
+        [data-theme="dark"] .highlight .p { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .nf, [data-theme="dark"] .highlight .nc,
+        [data-theme="dark"] .highlight .ne { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .nn, [data-theme="dark"] .highlight .no { color: #79c0ff; }
+        [data-theme="dark"] .highlight .nd { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .vm { color: #79c0ff; }
+        [data-theme="dark"] .highlight .err { color: #f85149; }
+
+        /* Notebook cell styling */
+        .notebook-cell { margin: 1.5em 0; padding: 0 1em; }
+        .notebook-cell.markdown { line-height: 1.8; }
+        .notebook-cell.markdown h2 { border-bottom: 2px solid #e74c3c; padding-bottom: 0.3em; margin-top: 1.5em; }
+        .notebook-cell.markdown h3 { margin-top: 1.5em; color: #c0392b; }
+        .notebook-cell.markdown table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .notebook-cell.markdown th, .notebook-cell.markdown td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        .notebook-cell.markdown th { background: #f5f5f5; font-weight: 600; }
+        .notebook-cell.markdown code { background: var(--code-bg); color: var(--code-text); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .notebook-cell.markdown pre { background: var(--code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border-color); line-height: 1.5; }
+        .notebook-cell.markdown pre code { background: none; padding: 0; color: inherit; }
+        .notebook-cell.code { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .notebook-cell.code .input-area { padding: 1em; border-bottom: 1px solid var(--border-color); }
+        .notebook-cell.code .input-area .highlight { background: var(--code-bg); padding: 0.8em 1em; border-radius: 6px; overflow-x: auto; }
+        .notebook-cell.code .input-area .highlight pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.88em; line-height: 1.5; }
+        .notebook-cell.code .input-area .in-prompt { color: #3498db; font-weight: bold; margin-bottom: 0.5em; }
+        .notebook-cell.code .output-area { padding: 0.8em 1em; }
+        .notebook-cell.code .output-area pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.85em; line-height: 1.4; color: var(--text-secondary); }
+        blockquote.tip { border-left: 4px solid #27ae60; padding: 0.5em 1em; margin: 1em 0; background: #f0fff4; border-radius: 0 6px 6px 0; }
+        blockquote.warning { border-left: 4px solid #f39c12; padding: 0.5em 1em; margin: 1em 0; background: #fffdf0; border-radius: 0 6px 6px 0; }
+
+        /* Dark mode overrides for notebook cells */
+        [data-theme="dark"] .notebook-cell.markdown h2 { border-bottom-color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown h3 { color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown th { background: var(--bg-tertiary); }
+        [data-theme="dark"] .notebook-cell.markdown th, [data-theme="dark"] .notebook-cell.markdown td { border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code { background: var(--bg-secondary); border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area .in-prompt { color: #60a5fa; }
+        [data-theme="dark"] blockquote.tip { background: #064e3b; color: #d1fae5; }
+        [data-theme="dark"] blockquote.warning { background: #78350f; color: #fef3c7; }
+    </style>
 </head>
 <body>
 <nav class="navbar">
@@ -20,9 +173,9 @@
                 <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
                 <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
                 <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
-                <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
+                <a href="07_state_serialization.html" class="nav-item active">07 · 状态序列化</a>
                 <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
-                <a href="09_containers.html" class="nav-item active">09 · 容器类</a>
+                <a href="09_containers.html" class="nav-item">09 · 容器类</a>
                 <a href="10_compilation_and_internals.html" class="nav-item">10 · 编译系统与内部细节</a>
             </div>
         </div>
@@ -32,27 +185,1322 @@
 </nav>
 <main class="main-content">
     <header class="page-header">
-        <h1>09 · 容器类（container.py）</h1>
-        <p class="subtitle">覆盖：<code>nn.Sequential</code>, <code>nn.ModuleList</code>, <code>nn.ModuleDict</code>, <code>nn.ParameterList</code>, <code>nn.ParameterDict</code></p>
+        <h1>09 · 容器类</h1>
+        <p class="subtitle">覆盖：Sequential, ModuleList, ModuleDict, ParameterList, ParameterDict, __getitem__, __setitem__, __delitem__, add_module</p>
     </header>
     <div class="diagram-container">
-        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
-            <p style="font-size: 4rem;">📝</p>
-            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
-            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
-        </div>
-        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
-            <h3>📋 本 Notebook 大纲</h3>
-            <h4>Part A: 源码阅读</h4>
-            <ul><li><code>Sequential.__getitem__</code> 的索引/切片实现</li><li><code>ModuleList</code> 如何 override <code>__setattr__</code> 来注册子模块</li><li><code>ModuleDict</code> 的 key-based 子模块管理</li><li><code>ParameterList/ParameterDict</code> 的参数自动注册</li></ul>
-            <h4>Part B: 机制分析</h4>
-            <ul><li>nn.ModuleList vs Python list：参数可见性核心差异</li><li>Sequential 的 OrderedDict 命名规则</li><li>ModuleDict 的嵌套递归行为</li></ul>
-            <h4>Part C: 动手实验</h4>
-            <ul><li>实验 1：ModuleList vs Python list 在 named_parameters() 中的差异</li><li>实验 2：Sequential 的切片访问与索引访问</li><li>实验 3：ModuleDict 动态增删子模块</li></ul>
-        </div>
+
+<div class="notebook-cell markdown">
+<h1>09 · 容器类</h1>
+
+<blockquote><strong>覆盖的类/函数</strong>：<code>nn.Sequential</code>, <code>nn.ModuleList</code>, <code>nn.ModuleDict</code>, <code>nn.ParameterList</code>, <code>nn.ParameterDict</code>, <code>__getitem__</code>, <code>__setitem__</code>, <code>__delitem__</code>, <code>forward</code>, <code>add_module</code>, <code>append</code>, <code>extend</code>, <code>insert</code>
+<strong>PyTorch 源码</strong>：<a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/container.py" target="_blank">torch/nn/modules/container.py</a>
+<strong>运行环境</strong>：Python 3.9+, PyTorch 2.0+</blockquote>
+
+<p><code>nn.Module</code> 的核心能力之一是<strong>层级化管理子模块</strong>。PyTorch 提供了五种容器类，让你可以用 list、dict、sequential 等数据结构来组织子模块和参数。本 Notebook 深入这些容器类的源码，揭示它们与 Python 原生数据结构的<strong>关键差异</strong>。</p>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part A: 源码阅读</h2>
+
+<p>首先导入依赖并构建基础环境：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [1]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PyTorch 版本: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">PyTorch 版本: 2.8.0</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.1 <code>Sequential</code> — 链式调用的有序容器</h3>
+
+<p><code>Sequential</code> 是最常用的容器类。它的 <code>forward()</code> 方法实现了<strong>链式调用</strong>：将前一个模块的输出作为下一个模块的输入。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [2]:</div>
+<div class="highlight"><pre><span class="c1"># Sequential 核心源码</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules</span><span class="w"> </span><span class="kn">import</span> <span class="n">container</span> <span class="k">as</span> <span class="n">cont</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Sequential.__init__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="fm">__init__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential.forward ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="n">forward</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential.__getitem__（索引/切片）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Sequential.__init__ ===</span>
+<span class="go">    @overload</span>
+<span class="go">    def __init__(self, *args: Module) -&gt; None: ...</span>
+
+<span class="go">    @overload</span>
+<span class="go">    def __init__(self, arg: OrderedDict[str, Module]) -&gt; None: ...</span>
+
+<span class="go">    def __init__(self, *args):</span>
+<span class="go">        super().__init__()</span>
+<span class="go">        if len(args) == 1 and isinstance(args[0], OrderedDict):</span>
+<span class="go">            for key, module in args[0].items():</span>
+<span class="go">                self.add_module(key, module)</span>
+<span class="go">        else:</span>
+<span class="go">            for idx, module in enumerate(args):</span>
+<span class="go">                self.add_module(str(idx), module)</span>
+
+
+<span class="go">=== Sequential.forward ===</span>
+<span class="go">    def forward(self, input):</span>
+<span class="go">        for module in self:</span>
+<span class="go">            input = module(input)</span>
+<span class="go">        return input</span>
+
+
+<span class="go">=== Sequential.__getitem__（索引/切片）===</span>
+<span class="go">    @_copy_to_script_wrapper</span>
+<span class="go">    def __getitem__(self, idx: Union[slice, int]) -&gt; Union[Sequential, Module]:</span>
+<span class="go">        if isinstance(idx, slice):</span>
+<span class="go">            return self.__class__(OrderedDict(list(self._modules.items())[idx]))</span>
+<span class="go">        else:</span>
+<span class="go">            return self._get_item_by_idx(self._modules.values(), idx)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>Sequential.__init__</code> 的两种构造方式</strong>：</p>
+
+<table>
+<tr>
+<th>构造方式</th>
+<th>示例</th>
+<th>内部行为</th>
+</tr>
+<tr>
+<td><strong>位置参数</strong></td>
+<td><code>Sequential(conv, relu, fc)</code></td>
+<td>自动编号为 <code>"0"</code>, <code>"1"</code>, <code>"2"</code></td>
+</tr>
+<tr>
+<td><strong>OrderedDict</strong></td>
+<td><code>Sequential(OrderedDict([("conv", conv), ("relu", relu)]))</code></td>
+<td>使用指定的 key 名称</td>
+</tr>
+</table>
+
+<p><code>__getitem__</code> 支持两种访问：</p>
+<ul>
+<li><strong>整数索引</strong> → 返回单个 <code>Module</code>（支持负数索引 <code>[-1]</code>）</li>
+<li><strong>切片</strong> → 返回新的 <code>Sequential</code>（保留 key 的 OrderedDict）</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.1.2 Sequential 的增删改操作</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [3]:</div>
+<div class="highlight"><pre><span class="c1"># Sequential 的修改操作源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Sequential.append ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="n">append</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential.__setitem__（按索引替换）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential.__delitem__（按索引/切片删除）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential.insert ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">Sequential</span><span class="o">.</span><span class="n">insert</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Sequential.append ===</span>
+<span class="go">    def append(self, module: Module) -&gt; Self:</span>
+<span class="go">        r&quot;&quot;&quot;Append a given module to the end.&quot;&quot;&quot;</span>
+<span class="go">        self.add_module(str(len(self)), module)</span>
+<span class="go">        return self</span>
+
+
+<span class="go">=== Sequential.__setitem__（按索引替换）===</span>
+<span class="go">    def __setitem__(self, idx: int, module: Module) -&gt; None:</span>
+<span class="go">        key: str = self._get_item_by_idx(self._modules.keys(), idx)</span>
+<span class="go">        return setattr(self, key, module)</span>
+
+
+<span class="go">=== Sequential.__delitem__（按索引/切片删除）===</span>
+<span class="go">    def __delitem__(self, idx: Union[slice, int]) -&gt; None:</span>
+<span class="go">        if isinstance(idx, slice):</span>
+<span class="go">            for key in list(self._modules.keys())[idx]:</span>
+<span class="go">                delattr(self, key)</span>
+<span class="go">        else:</span>
+<span class="go">            key = self._get_item_by_idx(self._modules.keys(), idx)</span>
+<span class="go">            delattr(self, key)</span>
+<span class="go">        # To preserve numbering</span>
+<span class="go">        str_indices = [str(i) for i in range(len(self._modules))]</span>
+<span class="go">        self._modules = OrderedDict(list(zip(str_indices, self._modules.values())))</span>
+
+
+<span class="go">=== Sequential.insert ===</span>
+<span class="go">    def insert(self, index: int, module: Module) -&gt; Self:</span>
+<span class="go">        if not isinstance(module, Module):</span>
+<span class="go">            raise AssertionError(f&quot;module should be of type: {Module}&quot;)</span>
+<span class="go">        n = len(self._modules)</span>
+<span class="go">        if not (-n &lt;= index &lt;= n):</span>
+<span class="go">            raise IndexError(f&quot;Index out of range: {index}&quot;)</span>
+<span class="go">        if index &lt; 0:</span>
+<span class="go">            index += n</span>
+<span class="go">        for i in range(n, index, -1):</span>
+<span class="go">            self._modules[str(i)] = self._modules[str(i - 1)]</span>
+<span class="go">        self._modules[str(index)] = module</span>
+<span class="go">        return self</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="tip">💡 <strong>关键细节</strong>：<code>__delitem__</code> 删除元素后会<strong>重新编号</strong>所有 key（<code>"0"</code>, <code>"1"</code>, <code>"2"</code>...），保证编号始终连续。<code>insert</code> 也会将后续元素逐一后移以保持连续性。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.2 <code>ModuleList</code> — 可注册的模块列表</h3>
+
+<p><code>ModuleList</code> 看起来像 Python <code>list</code>，但内部使用 <code>OrderedDict</code> 存储子模块（与 <code>Sequential</code> 相同），因此所有子模块会被 <code>parameters()</code>、<code>modules()</code> 等方法<strong>自动发现</strong>。</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [4]:</div>
+<div class="highlight"><pre><span class="c1"># ModuleList 核心源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== ModuleList.__init__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleList</span><span class="o">.</span><span class="fm">__init__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleList.__getitem__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleList</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleList.append ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleList</span><span class="o">.</span><span class="n">append</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleList.extend ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleList</span><span class="o">.</span><span class="n">extend</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleList.insert ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleList</span><span class="o">.</span><span class="n">insert</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== ModuleList.__init__ ===</span>
+<span class="go">    def __init__(self, modules: Optional[Iterable[Module]] = None) -&gt; None:</span>
+<span class="go">        super().__init__()</span>
+<span class="go">        if modules is not None:</span>
+<span class="go">            self += modules</span>
+
+
+<span class="go">=== ModuleList.__getitem__ ===</span>
+<span class="go">    @overload</span>
+<span class="go">    def __getitem__(self, idx: slice) -&gt; ModuleList: ...</span>
+
+<span class="go">    @overload</span>
+<span class="go">    def __getitem__(self, idx: int) -&gt; Module: ...</span>
+
+<span class="go">    @_copy_to_script_wrapper</span>
+<span class="go">    def __getitem__(self, idx: Union[int, slice]) -&gt; Union[Module, ModuleList]:</span>
+<span class="go">        if isinstance(idx, slice):</span>
+<span class="go">            return self.__class__(list(self._modules.values())[idx])</span>
+<span class="go">        else:</span>
+<span class="go">            return self._modules[self._get_abs_string_index(idx)]</span>
+
+
+<span class="go">=== ModuleList.append ===</span>
+<span class="go">    def append(self, module: Module) -&gt; Self:</span>
+<span class="go">        r&quot;&quot;&quot;Append a given module to the end of the list.&quot;&quot;&quot;</span>
+<span class="go">        self.add_module(str(len(self)), module)</span>
+<span class="go">        return self</span>
+
+
+<span class="go">=== ModuleList.extend ===</span>
+<span class="go">    def extend(self, modules: Iterable[Module]) -&gt; Self:</span>
+<span class="go">        r&quot;&quot;&quot;Append modules from a Python iterable to the end of the list.&quot;&quot;&quot;</span>
+<span class="go">        if not isinstance(modules, container_abcs.Iterable):</span>
+<span class="go">            raise TypeError(</span>
+<span class="go">                &quot;ModuleList.extend should be called with an &quot;</span>
+<span class="go">                &quot;iterable, but got &quot; + type(modules).__name__</span>
+<span class="go">            )</span>
+<span class="go">        offset = len(self)</span>
+<span class="go">        for i, module in enumerate(modules):</span>
+<span class="go">            self.add_module(str(offset + i), module)</span>
+<span class="go">        return self</span>
+
+
+<span class="go">=== ModuleList.insert ===</span>
+<span class="go">    def insert(self, index: int, module: Module) -&gt; None:</span>
+<span class="go">        r&quot;&quot;&quot;Insert a given module before a given index in the list.&quot;&quot;&quot;</span>
+<span class="go">        for i in range(len(self._modules), index, -1):</span>
+<span class="go">            self._modules[str(i)] = self._modules[str(i - 1)]</span>
+<span class="go">        self._modules[str(index)] = module</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="warning">⚠️ <strong>关键发现</strong>：<code>ModuleList</code> <strong>没有</strong> <code>forward()</code> 方法（继承 <code>Module</code> 的默认实现会抛 <code>NotImplementedError</code>）。它只是一个<strong>存储容器</strong>，而非计算单元。你需要手动迭代它来定义 forward 逻辑。</blockquote>
+
+<p><code>ModuleList.__repr__</code> 还做了一个聪明的优化：<strong>相邻重复模块会压缩显示</strong>（如 <code>(0-9): 10 x Linear(...)</code>）。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.3 <code>ModuleDict</code> — 基于 key 的子模块字典</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [5]:</div>
+<div class="highlight"><pre><span class="c1"># ModuleDict 核心源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== ModuleDict.__init__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleDict</span><span class="o">.</span><span class="fm">__init__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleDict.__getitem__ / __setitem__ / __delitem__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleDict</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleDict</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleDict</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ModuleDict.update ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ModuleDict</span><span class="o">.</span><span class="n">update</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== ModuleDict.__init__ ===</span>
+<span class="go">    def __init__(self, modules: Optional[Mapping[str, Module]] = None) -&gt; None:</span>
+<span class="go">        super().__init__()</span>
+<span class="go">        if modules is not None:</span>
+<span class="go">            self.update(modules)</span>
+
+
+<span class="go">=== ModuleDict.__getitem__ / __setitem__ / __delitem__ ===</span>
+<span class="go">    @_copy_to_script_wrapper</span>
+<span class="go">    def __getitem__(self, key: str) -&gt; Module:</span>
+<span class="go">        return self._modules[key]</span>
+
+<span class="go">    def __setitem__(self, key: str, module: Module) -&gt; None:</span>
+<span class="go">        self.add_module(key, module)</span>
+
+<span class="go">    def __delitem__(self, key: str) -&gt; None:</span>
+<span class="go">        del self._modules[key]</span>
+
+
+<span class="go">=== ModuleDict.update ===</span>
+<span class="go">    def update(self, modules: Mapping[str, Module]) -&gt; None:</span>
+<span class="go">        if not isinstance(modules, container_abcs.Iterable):</span>
+<span class="go">            raise TypeError(</span>
+<span class="go">                &quot;ModuleDict.update should be called with an &quot;</span>
+<span class="go">                &quot;iterable of key/value pairs, but got &quot; + type(modules).__name__</span>
+<span class="go">            )</span>
+
+<span class="go">        if isinstance(modules, (OrderedDict, ModuleDict, container_abcs.Mapping)):</span>
+<span class="go">            for key, module in modules.items():</span>
+<span class="go">                self[key] = module</span>
+<span class="go">        else:</span>
+<span class="go">            # modules here can be a list with two items</span>
+<span class="go">            for j, m in enumerate(modules):</span>
+<span class="go">                if not isinstance(m, container_abcs.Iterable):</span>
+<span class="go">                    raise TypeError(</span>
+<span class="go">                        &quot;ModuleDict update sequence element &quot;</span>
+<span class="go">                        &quot;#&quot; + str(j) + &quot; should be Iterable; is&quot; + type(m).__name__</span>
+<span class="go">                    )</span>
+<span class="go">                if not len(m) == 2:</span>
+<span class="go">                    raise ValueError(</span>
+<span class="go">                        &quot;ModuleDict update sequence element &quot;</span>
+<span class="go">                        &quot;#&quot; + str(j) + &quot; has length &quot; + str(len(m)) + &quot;; 2 is required&quot;</span>
+<span class="go">                    )</span>
+<span class="go">                self[m[0]] = m[1]  # type: ignore[assignment]</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>ModuleDict</code> 的设计要点</strong>：</p>
+
+<ul>
+<li><code>__setitem__</code> 直接调用 <code>add_module(key, module)</code>，所以 <code>module_dict["conv"] = nn.Conv2d(...)</code> 就能正确注册子模块</li>
+<li><code>__delitem__</code> 直接从 <code>_modules</code> 中删除（无需重编号，因为是命名 key）</li>
+<li><code>update()</code> 支持三种输入：<code>OrderedDict</code>、普通 <code>dict</code>/<code>Mapping</code>、以及 <code>[(key, module), ...]</code> 列表</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.4 <code>ParameterList</code> / <code>ParameterDict</code> — 参数容器</h3>
+
+<p>这两个类专门管理<strong>参数</strong>（而非子模块），核心功能是将普通 <code>Tensor</code><strong>自动包装</strong>为 <code>nn.Parameter</code>：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [6]:</div>
+<div class="highlight"><pre><span class="c1"># ParameterList / ParameterDict 核心源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== ParameterList.__setitem__（自动包装 Tensor → Parameter）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ParameterList</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ParameterList.append ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ParameterList</span><span class="o">.</span><span class="n">append</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ParameterDict.__setitem__（自动包装）===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">cont</span><span class="o">.</span><span class="n">ParameterDict</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== ParameterList.__setitem__（自动包装 Tensor → Parameter）===</span>
+<span class="go">    def __setitem__(self, idx: int, param: Any) -&gt; None:</span>
+<span class="go">        # Note that all other function that add an entry to the list part of</span>
+<span class="go">        # the ParameterList end up here. So this is the only place where we need</span>
+<span class="go">        # to wrap things into Parameter if needed.</span>
+<span class="go">        # Objects added via setattr() are not in the list part and thus won&#39;t</span>
+<span class="go">        # call into this function.</span>
+<span class="go">        idx = self._get_abs_string_index(idx)</span>
+<span class="go">        if isinstance(param, torch.Tensor) and not isinstance(param, Parameter):</span>
+<span class="go">            param = Parameter(param)</span>
+<span class="go">        return setattr(self, str(idx), param)</span>
+
+
+<span class="go">=== ParameterList.append ===</span>
+<span class="go">    def append(self, value: Any) -&gt; Self:</span>
+<span class="go">        &quot;&quot;&quot;Append a given value at the end of the list.&quot;&quot;&quot;</span>
+<span class="go">        new_idx = len(self)</span>
+<span class="go">        self._size += 1</span>
+<span class="go">        self[new_idx] = value</span>
+<span class="go">        return self</span>
+
+
+<span class="go">=== ParameterDict.__setitem__（自动包装）===</span>
+<span class="go">    def __setitem__(self, key: str, value: Any) -&gt; None:</span>
+<span class="go">        self._keys[key] = None</span>
+<span class="go">        attr = self._key_to_attr(key)</span>
+<span class="go">        if isinstance(value, torch.Tensor) and not isinstance(value, Parameter):</span>
+<span class="go">            value = Parameter(value)</span>
+<span class="go">        setattr(self, attr, value)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="warning">⚠️ <strong>重要区别</strong>：<code>ParameterList.__setitem__</code> 是<strong>唯一</strong>进行 Tensor→Parameter 包装的地方。所有增删操作（<code>append</code>, <code>extend</code>, <code>insert</code>, <code>__iadd__</code>）最终都会调用 <code>__setitem__</code>。但直接通过 <code>setattr(self, name, tensor)</code> 设置的属性<strong>不会</strong>走 <code>__setitem__</code>，因此不会被自动包装。</blockquote>
+
+<p><strong>容器类架构总览</strong>：</p>
+
+<pre><code>容器类层级：
+                    nn.Module
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+    Sequential      ModuleList      ModuleDict
+  （链式调用）     （列表存储）      （字典存储）
+                        │
+                ParameterList  ParameterDict
+               （参数列表）     （参数字典）</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part B: 机制分析</h2>
+
+<h3>B.1 五大容器对比总览</h3>
+
+<table>
+<tr>
+<th>特性</th>
+<th>Sequential</th>
+<th>ModuleList</th>
+<th>ModuleDict</th>
+<th>ParameterList</th>
+<th>ParameterDict</th>
+</tr>
+<tr>
+<td><strong>存储内容</strong></td>
+<td>Module</td>
+<td>Module</td>
+<td>Module</td>
+<td>Parameter/Tensor</td>
+<td>Parameter/Tensor</td>
+</tr>
+<tr>
+<td><strong>内部结构</strong></td>
+<td>OrderedDict (str → Module)</td>
+<td>OrderedDict (str → Module)</td>
+<td>OrderedDict (str → Module)</td>
+<td>Module 属性 (str → Param)</td>
+<td>Module 属性 (str → Param)</td>
+</tr>
+<tr>
+<td><strong>forward()</strong></td>
+<td>✅ 链式调用</td>
+<td>❌ 抛 NotImplementedError</td>
+<td>❌ 抛 NotImplementedError</td>
+<td>❌ 抛 RuntimeError</td>
+<td>❌ 抛 RuntimeError</td>
+</tr>
+<tr>
+<td><strong>索引访问</strong></td>
+<td><code>[int]</code> → Module, <code>[slice]</code> → Sequential</td>
+<td><code>[int]</code> → Module, <code>[slice]</code> → ModuleList</td>
+<td><code>[str]</code> → Module</td>
+<td><code>[int]</code> → Parameter, <code>[slice]</code> → ParameterList</td>
+<td><code>[str]</code> → Parameter</td>
+</tr>
+<tr>
+<td><strong>自动包装</strong></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>Tensor → Parameter</td>
+<td>Tensor → Parameter</td>
+</tr>
+<tr>
+<td><strong>删除后重编号</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌（命名 key）</td>
+<td>✅</td>
+<td>❌（命名 key）</td>
+</tr>
+<tr>
+<td><strong><code>parameters()</code> 可见</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong><code>modules()</code> 可见</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌（存的是参数）</td>
+<td>❌（存的是参数）</td>
+</tr>
+</table>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.2 Sequential 的命名规则与重编号机制</h3>
+
+<p><code>Sequential</code> 和 <code>ModuleList</code> 使用<strong>数字字符串</strong>作为 <code>_modules</code> 的 key。删除元素后的重编号是理解其行为的关键：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [7]:</div>
+<div class="highlight"><pre><span class="c1"># 可视化重编号机制</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 重编号机制演示 ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 构建 Sequential</span>
+<span class="n">seq</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;初始状态:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">seq</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  _modules[&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+
+<span class="c1"># 删除索引 1 (ReLU)</span>
+<span class="k">del</span> <span class="n">seq</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">删除 seq[1] 后:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">seq</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  _modules[&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+
+<span class="c1"># 删除切片 1:3</span>
+<span class="k">del</span> <span class="n">seq</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">删除 seq[1:3] 后:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">seq</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  _modules[&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">💡 每次删除后，key 都被重新编号为连续的 0, 1, 2, ...&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">初始状态:</span>
+<span class="go">  _modules[&#39;0&#39;]</span>
+<span class="go">  _modules[&#39;1&#39;]</span>
+<span class="go">  _modules[&#39;2&#39;]</span>
+<span class="go">  _modules[&#39;3&#39;]</span>
+<span class="go">  _modules[&#39;4&#39;]</span>
+
+<span class="go">删除 seq[1] 后:</span>
+<span class="go">  _modules[&#39;0&#39;]</span>
+<span class="go">  _modules[&#39;1&#39;]</span>
+<span class="go">  _modules[&#39;2&#39;]</span>
+<span class="go">  _modules[&#39;3&#39;]</span>
+
+<span class="go">删除 seq[1:3] 后:</span>
+<span class="go">  _modules[&#39;0&#39;]</span>
+<span class="go">  _modules[&#39;1&#39;]</span>
+
+<span class="go">💡 每次删除后，key 都被重新编号为连续的 0, 1, 2, ...</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.3 ModuleList vs Python list：参数可见性的核心差异</h3>
+
+<p>这是最容易踩的坑。<strong>Python 原生 list 中的 Module 不会被 <code>parameters()</code> 发现</strong>：</p>
+
+<pre><code>┌──────────────────────────────────────────────────────────┐
+│              Python list (错误做法)                       │
+│                                                          │
+│  self.layers = [nn.Linear(10,10) for _ in range(3)]     │
+│                                                          │
+│  model.parameters()  →  ❌ 空的！                        │
+│  model.to(&#x27;cuda&#x27;)    →  ❌ 子模块不会迁移！              │
+│  state_dict()        →  ❌ 子模块参数不会保存！          │
+│                                                          │
+│  原因：Python list 不会触发 __setattr__ 拦截             │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│              nn.ModuleList (正确做法)                     │
+│                                                          │
+│  self.layers = nn.ModuleList([                           │
+│      nn.Linear(10,10) for _ in range(3)                  │
+│  ])                                                      │
+│                                                          │
+│  model.parameters()  →  ✅ 所有子模块参数都可见          │
+│  model.to(&#x27;cuda&#x27;)    →  ✅ 所有子模块一起迁移            │
+│  state_dict()        →  ✅ 所有子模块参数都保存          │
+│                                                          │
+│  原因：ModuleList 通过 add_module() 注册子模块           │
+└──────────────────────────────────────────────────────────┘</code></pre>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.4 容器类的 state_dict 命名规则</h3>
+
+<p>容器类在 <code>state_dict()</code> 中的 key 命名取决于它们在父模块中的<strong>属性名</strong>以及容器类型：</p>
+
+<table>
+<tr>
+<th>容器类型</th>
+<th>state_dict key 格式示例</th>
+<th>说明</th>
+</tr>
+<tr>
+<td>Sequential (自动编号)</td>
+<td><code>features.0.weight</code></td>
+<td>数字 key 作为路径段</td>
+</tr>
+<tr>
+<td>Sequential (OrderedDict)</td>
+<td><code>features.conv.weight</code></td>
+<td>命名 key 作为路径段</td>
+</tr>
+<tr>
+<td>ModuleList</td>
+<td><code>layers.0.weight</code>, <code>layers.1.bias</code></td>
+<td>始终是数字索引</td>
+</tr>
+<tr>
+<td>ModuleDict</td>
+<td><code>choices.conv.weight</code>, <code>choices.pool.weight</code></td>
+<td>字符串 key</td>
+</tr>
+<tr>
+<td>ParameterList</td>
+<td><code>params.0</code> (直接是 Parameter)</td>
+<td>数字索引，无子属性</td>
+</tr>
+<tr>
+<td>ParameterDict</td>
+<td><code>embeddings.word_emb</code></td>
+<td>字符串 key</td>
+</tr>
+</table>
+
+<p>这个命名规则自然地保持了层级结构，与 <code>_modules</code> / <code>_parameters</code> 的键名一一对应。</p>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part C: 动手实验</h2>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 1：ModuleList vs Python list — 参数可见性对比</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [8]:</div>
+<div class="highlight"><pre><span class="c1"># 构建两个结构相同但容器不同的模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelWithList</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;使用 Python 原生 list（❌ 错误做法）&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelWithModuleList</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;使用 nn.ModuleList（✅ 正确做法）&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="c1"># 创建两个模型</span>
+<span class="n">model_list</span> <span class="o">=</span> <span class="n">ModelWithList</span><span class="p">()</span>
+<span class="n">model_modlist</span> <span class="o">=</span> <span class="n">ModelWithModuleList</span><span class="p">()</span>
+
+<span class="c1"># === 测试 1: parameters() ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;测试 1: parameters() 可见性&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">params_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_list</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+<span class="n">params_modlist</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_modlist</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python list 容器:  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">params_list</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个参数&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;nn.ModuleList 容器: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">params_modlist</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个参数&quot;</span><span class="p">)</span>
+
+<span class="c1"># === 测试 2: named_parameters() ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- named_parameters() ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Python list 容器:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">model_list</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → 参数数为 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">model_list</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()))</span><span class="si">}</span><span class="s2"> — 所有参数都丢失了！&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">nn.ModuleList 容器:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">model_modlist</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === 测试 3: modules() ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- named_modules() ---&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Python list 容器:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">model_list</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;  (root)&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">nn.ModuleList 容器:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">model_modlist</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;  (root)&quot;</span><span class="p">)</span>
+
+<span class="c1"># === 测试 4: to(device) ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- to(dtype=float64) 测试 ---&quot;</span><span class="p">)</span>
+<span class="n">model_list_d</span> <span class="o">=</span> <span class="n">ModelWithList</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="n">model_modlist_d</span> <span class="o">=</span> <span class="n">ModelWithModuleList</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Python list 容器: 子模块参数 dtype =&quot;</span><span class="p">,</span>
+      <span class="nb">next</span><span class="p">(</span><span class="n">model_list_d</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nn.ModuleList 容器: 子模块参数 dtype =&quot;</span><span class="p">,</span>
+      <span class="nb">next</span><span class="p">(</span><span class="n">model_modlist_d</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">⚠️ Python list 中的 Linear 层的 weight 仍为 float32！&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   因为 model.to(dtype) 没有递归到 Python list 中的模块。&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">============================================================</span>
+<span class="go">测试 1: parameters() 可见性</span>
+<span class="go">============================================================</span>
+<span class="go">Python list 容器:  0 个参数</span>
+<span class="go">nn.ModuleList 容器: 6 个参数</span>
+
+<span class="go">--- named_parameters() ---</span>
+<span class="go">Python list 容器:</span>
+<span class="go">  → 参数数为 0 — 所有参数都丢失了！</span>
+
+<span class="go">nn.ModuleList 容器:</span>
+<span class="go">  layers.0.weight</span>
+<span class="go">  layers.0.bias</span>
+<span class="go">  layers.1.weight</span>
+<span class="go">  layers.1.bias</span>
+<span class="go">  layers.2.weight</span>
+<span class="go">  layers.2.bias</span>
+
+<span class="go">--- named_modules() ---</span>
+<span class="go">Python list 容器:</span>
+<span class="go">  (root)</span>
+
+<span class="go">nn.ModuleList 容器:</span>
+<span class="go">  (root)</span>
+<span class="go">  &#39;layers&#39;</span>
+<span class="go">  &#39;layers.0&#39;</span>
+<span class="go">  &#39;layers.1&#39;</span>
+<span class="go">  &#39;layers.2&#39;</span>
+
+<span class="go">--- to(dtype=float64) 测试 ---</span>
+<span class="go">Python list 容器: 子模块参数 dtype = torch.float32</span>
+<span class="go">nn.ModuleList 容器: 子模块参数 dtype = torch.float64</span>
+
+<span class="go">⚠️ Python list 中的 Linear 层的 weight 仍为 float32！</span>
+<span class="go">   因为 model.to(dtype) 没有递归到 Python list 中的模块。</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>关键结论</strong>：</p>
+
+<table>
+<tr>
+<th>操作</th>
+<th>Python list</th>
+<th>nn.ModuleList</th>
+</tr>
+<tr>
+<td><code>parameters()</code></td>
+<td>❌ 0 个参数</td>
+<td>✅ 6 个参数</td>
+</tr>
+<tr>
+<td><code>named_modules()</code></td>
+<td>❌ 不包含子模块</td>
+<td>✅ 递归可见</td>
+</tr>
+<tr>
+<td><code>model.to(dtype)</code></td>
+<td>❌ 子模块不迁移</td>
+<td>✅ 全部迁移</td>
+</tr>
+<tr>
+<td><code>state_dict()</code></td>
+<td>❌ 不保存</td>
+<td>✅ 全部保存</td>
+</tr>
+<tr>
+<td><code>model.cuda()</code></td>
+<td>❌ 子模块留在 CPU</td>
+<td>✅ 全部移到 GPU</td>
+</tr>
+</table>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 2：Sequential 的切片、索引与运算</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [9]:</div>
+<div class="highlight"><pre><span class="c1"># 构建测试 Sequential</span>
+<span class="n">seq</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>    <span class="c1"># 索引 0</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>           <span class="c1"># 索引 1</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>   <span class="c1"># 索引 2</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>           <span class="c1"># 索引 3</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>   <span class="c1"># 索引 4</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;原始 Sequential:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
+
+<span class="c1"># === 整数索引 ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 整数索引 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq[0]:  </span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq[-1]: </span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq[2]:  </span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === 切片（返回新的 Sequential）===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 切片 ===&quot;</span><span class="p">)</span>
+<span class="n">subset</span> <span class="o">=</span> <span class="n">seq</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq[1:3]: </span><span class="si">{</span><span class="n">subset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  类型: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">subset</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  长度: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subset</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 负数切片</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">seq[-2:]: </span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === append ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== append ===&quot;</span><span class="p">)</span>
+<span class="n">seq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Softmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;append Softmax 后长度: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  seq[-1]: </span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === insert ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== insert ===&quot;</span><span class="p">)</span>
+<span class="n">seq</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;insert Dropout 在索引 2 后:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">mod</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">seq</span><span class="o">.</span><span class="n">named_children</span><span class="p">()):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === __add__ / __iadd__ ===</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential + Sequential ===&quot;</span><span class="p">)</span>
+<span class="n">seq_a</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+<span class="n">seq_b</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+<span class="n">seq_combined</span> <span class="o">=</span> <span class="n">seq_a</span> <span class="o">+</span> <span class="n">seq_b</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq_a + seq_b: 长度 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">seq_combined</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">seq_combined</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># === __mul__（重复串联）===</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Sequential * n ===&quot;</span><span class="p">)</span>
+<span class="n">seq_triple</span> <span class="o">=</span> <span class="n">seq_a</span> <span class="o">*</span> <span class="mi">3</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;seq_a * 3: 长度 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">seq_triple</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">seq_triple</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">原始 Sequential:</span>
+<span class="go">Sequential(</span>
+<span class="go">  (0): Linear(in_features=8, out_features=16, bias=True)</span>
+<span class="go">  (1): ReLU()</span>
+<span class="go">  (2): Linear(in_features=16, out_features=32, bias=True)</span>
+<span class="go">  (3): ReLU()</span>
+<span class="go">  (4): Linear(in_features=32, out_features=10, bias=True)</span>
+<span class="go">)</span>
+
+<span class="go">=== 整数索引 ===</span>
+<span class="go">seq[0]:  Linear(in_features=8, out_features=16, bias=True)</span>
+<span class="go">seq[-1]: Linear(in_features=32, out_features=10, bias=True)</span>
+<span class="go">seq[2]:  Linear(in_features=16, out_features=32, bias=True)</span>
+
+<span class="go">=== 切片 ===</span>
+<span class="go">seq[1:3]: Sequential(</span>
+<span class="go">  (1): ReLU()</span>
+<span class="go">  (2): Linear(in_features=16, out_features=32, bias=True)</span>
+<span class="go">)</span>
+<span class="go">  类型: Sequential</span>
+<span class="go">  长度: 2</span>
+
+<span class="go">seq[-2:]: Sequential(</span>
+<span class="go">  (3): ReLU()</span>
+<span class="go">  (4): Linear(in_features=32, out_features=10, bias=True)</span>
+<span class="go">)</span>
+
+<span class="go">=== append ===</span>
+<span class="go">append Softmax 后长度: 6</span>
+<span class="go">  seq[-1]: Softmax(dim=-1)</span>
+
+<span class="go">=== insert ===</span>
+<span class="go">insert Dropout 在索引 2 后:</span>
+<span class="go">  0: Linear(in_features=8, out_features=16, bias=True)</span>
+<span class="go">  1: ReLU()</span>
+<span class="go">  2: Dropout(p=0.5, inplace=False)</span>
+<span class="go">  3: Linear(in_features=16, out_features=32, bias=True)</span>
+<span class="go">  4: ReLU()</span>
+<span class="go">  5: Linear(in_features=32, out_features=10, bias=True)</span>
+<span class="go">  6: Softmax(dim=-1)</span>
+
+<span class="go">=== Sequential + Sequential ===</span>
+<span class="go">seq_a + seq_b: 长度 4</span>
+<span class="go">  0: Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  1: ReLU()</span>
+<span class="go">  2: Linear(in_features=20, out_features=30, bias=True)</span>
+<span class="go">  3: ReLU()</span>
+
+<span class="go">=== Sequential * n ===</span>
+<span class="go">seq_a * 3: 长度 6</span>
+<span class="go">  0: Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  1: ReLU()</span>
+<span class="go">  2: Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  3: ReLU()</span>
+<span class="go">  4: Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  5: ReLU()</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>Sequential 支持的操作总结</strong>：</p>
+
+<table>
+<tr>
+<th>操作</th>
+<th>语法</th>
+<th>返回类型</th>
+</tr>
+<tr>
+<td>整数索引</td>
+<td><code>seq[0]</code>, <code>seq[-1]</code></td>
+<td>Module</td>
+</tr>
+<tr>
+<td>切片</td>
+<td><code>seq[1:3]</code>, <code>seq[::2]</code></td>
+<td>Sequential</td>
+</tr>
+<tr>
+<td>追加</td>
+<td><code>seq.append(mod)</code></td>
+<td>Sequential (in-place)</td>
+</tr>
+<tr>
+<td>插入</td>
+<td><code>seq.insert(i, mod)</code></td>
+<td>Sequential (in-place)</td>
+</tr>
+<tr>
+<td>替换</td>
+<td><code>seq[0] = new_mod</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>删除</td>
+<td><code>del seq[1]</code>, <code>del seq[1:3]</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>拼接</td>
+<td><code>seq1 + seq2</code></td>
+<td>Sequential (新对象)</td>
+</tr>
+<tr>
+<td>自拼接</td>
+<td><code>seq += seq2</code></td>
+<td>Sequential (in-place)</td>
+</tr>
+<tr>
+<td>重复</td>
+<td><code>seq <em> 3</code>, <code>3 </em> seq</code></td>
+<td>Sequential (新对象)</td>
+</tr>
+</table>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 3：ModuleDict 动态增删子模块</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [10]:</div>
+<div class="highlight"><pre><span class="c1"># ModuleDict 的动态管理能力</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RouterModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleDict</span><span class="p">({</span>
+            <span class="s1">&#39;linear&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+            <span class="s1">&#39;conv&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv1d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="p">})</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">expert_name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="n">expert_name</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">RouterModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;初始 experts:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;experts keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- 动态添加 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 动态添加 expert ===&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="s1">&#39;mlp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;experts keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 验证新模块被正确注册</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mlp 是否在 named_modules 中: </span><span class="si">{</span><span class="s1">&#39;experts.mlp&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nb">dict</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- 动态替换 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 动态替换 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;替换前 linear: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="s1">&#39;linear&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="s1">&#39;linear&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># 换一个无 bias 版本</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;替换后 linear: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="s1">&#39;linear&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- 动态删除 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 动态删除 ===&quot;</span><span class="p">)</span>
+<span class="k">del</span> <span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="s1">&#39;conv&#39;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;删除 conv 后 keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;conv 是否还在 named_modules 中: </span><span class="si">{</span><span class="s1">&#39;experts.conv&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nb">dict</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- pop 操作 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== pop 操作 ===&quot;</span><span class="p">)</span>
+<span class="n">popped</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;mlp&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pop mlp: </span><span class="si">{</span><span class="n">popped</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;剩余 keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- update 操作 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== update 批量添加 ===&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;norm&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
+    <span class="s1">&#39;dropout&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="mf">0.3</span><span class="p">),</span>
+<span class="p">})</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;update 后 keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">experts</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;参数数量: </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- 正向传播 ---</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">forward(x, &#39;linear&#39;) output shape: </span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">初始 experts:</span>
+<span class="go">  linear: Linear(in_features=10, out_features=10, bias=True)</span>
+<span class="go">  conv: Conv1d(1, 1, kernel_size=(3,), stride=(1,), padding=(1,))</span>
+<span class="go">experts keys: [&#39;linear&#39;, &#39;conv&#39;]</span>
+
+<span class="go">=== 动态添加 expert ===</span>
+<span class="go">experts keys: [&#39;linear&#39;, &#39;conv&#39;, &#39;mlp&#39;]</span>
+<span class="go">mlp 是否在 named_modules 中: True</span>
+
+<span class="go">=== 动态替换 ===</span>
+<span class="go">替换前 linear: Linear(in_features=10, out_features=10, bias=True)</span>
+<span class="go">替换后 linear: Linear(in_features=10, out_features=10, bias=False)</span>
+
+<span class="go">=== 动态删除 ===</span>
+<span class="go">删除 conv 后 keys: [&#39;linear&#39;, &#39;mlp&#39;]</span>
+<span class="go">conv 是否还在 named_modules 中: False</span>
+
+<span class="go">=== pop 操作 ===</span>
+<span class="go">pop mlp: Sequential(</span>
+<span class="go">  (0): Linear(in_features=10, out_features=20, bias=True)</span>
+<span class="go">  (1): ReLU()</span>
+<span class="go">  (2): Linear(in_features=20, out_features=10, bias=True)</span>
+<span class="go">)</span>
+<span class="go">剩余 keys: [&#39;linear&#39;]</span>
+
+<span class="go">=== update 批量添加 ===</span>
+<span class="go">update 后 keys: [&#39;linear&#39;, &#39;norm&#39;, &#39;dropout&#39;]</span>
+<span class="go">参数数量: 2</span>
+
+<span class="go">forward(x, &#39;linear&#39;) output shape: torch.Size([4, 10])</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<blockquote class="tip">💡 <strong>ModuleDict 的核心价值</strong>：允许在运行时<strong>动态选择、切换、增删</strong>子模块路径。这在 MoE（混合专家模型）、条件计算、动态网络架构中非常有用。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 4：ParameterList 自动包装 Tensor 与注册机制</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [11]:</div>
+<div class="highlight"><pre><span class="c1"># 演示 ParameterList 的 Tensor → Parameter 自动包装</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== ParameterList 自动包装 ===&quot;</span><span class="p">)</span>
+
+<span class="c1"># 创建 ParameterList，传入普通 Tensor</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">([</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>          <span class="c1"># 普通 Tensor → 自动包装为 Parameter</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>          <span class="c1"># 普通 Tensor → 自动包装为 Parameter</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>  <span class="c1"># 已经是 Parameter → 保持不变</span>
+<span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ParameterList 长度: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  params[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]: type=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">, requires_grad=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 验证：这些参数是否出现在模型的 parameters() 中</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">([</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">模型中的所有 named_parameters():&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;30</span><span class="si">}</span><span class="s2"> shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- ParameterList 与普通 Python list 的对比 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== ParameterList vs Python list (参数可见性) ===&quot;</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BadModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>  <span class="c1"># 普通 list</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params_modlist</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+
+<span class="n">bad</span> <span class="o">=</span> <span class="n">BadModel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python list 中的参数数: </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">bad</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="s1">&#39;params_list&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ParameterList 中的参数数: </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">bad</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="s1">&#39;params_modlist&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- extend / append 操作 ---</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== extend / append 操作 ===&quot;</span><span class="p">)</span>
+<span class="n">pl</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">()</span>
+<span class="n">pl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>  <span class="c1"># append 普通 Tensor</span>
+<span class="n">pl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)))</span>
+<span class="n">pl</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)])</span>  <span class="c1"># extend</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;extend 后长度: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pl</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pl</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  pl[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]: type=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">, requires_grad=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 验证：所有都是 Parameter</span>
+<span class="n">all_params</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pl</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;全部是 Parameter: </span><span class="si">{</span><span class="n">all_params</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== ParameterList 自动包装 ===</span>
+<span class="go">ParameterList 长度: 3</span>
+<span class="go">  params[0]: type=Parameter, shape=[5, 5], requires_grad=True</span>
+<span class="go">  params[1]: type=Parameter, shape=[3, 3], requires_grad=True</span>
+<span class="go">  params[2]: type=Parameter, shape=[2, 2], requires_grad=True</span>
+
+<span class="go">模型中的所有 named_parameters():</span>
+<span class="go">  weights.0                      shape=[4, 4]</span>
+<span class="go">  weights.1                      shape=[3, 3]</span>
+<span class="go">  linear.weight                  shape=[4, 4]</span>
+<span class="go">  linear.bias                    shape=[4]</span>
+
+<span class="go">=== ParameterList vs Python list (参数可见性) ===</span>
+<span class="go">Python list 中的参数数: 0</span>
+<span class="go">ParameterList 中的参数数: 3</span>
+
+<span class="go">=== extend / append 操作 ===</span>
+<span class="go">extend 后长度: 4</span>
+<span class="go">  pl[0]: type=Parameter, shape=[2, 2], requires_grad=True</span>
+<span class="go">  pl[1]: type=Parameter, shape=[3, 3], requires_grad=True</span>
+<span class="go">  pl[2]: type=Parameter, shape=[1, 1], requires_grad=True</span>
+<span class="go">  pl[3]: type=Parameter, shape=[4, 4], requires_grad=True</span>
+<span class="go">全部是 Parameter: True</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 5：容器类的 state_dict 命名规则对比</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [12]:</div>
+<div class="highlight"><pre><span class="c1"># 构建一个包含所有容器类型的模型，对比 state_dict key 命名</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContainerDemo</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Sequential 自动编号</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backbone</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="c1"># Sequential 命名 key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">OrderedDict</span><span class="p">([</span>
+            <span class="p">(</span><span class="s1">&#39;fc&#39;</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">)),</span>
+            <span class="p">(</span><span class="s1">&#39;act&#39;</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()),</span>
+        <span class="p">]))</span>
+        <span class="c1"># ModuleList</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branches</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+        <span class="p">])</span>
+        <span class="c1"># ModuleDict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adapters</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleDict</span><span class="p">({</span>
+            <span class="s1">&#39;scale&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+            <span class="s1">&#39;shift&#39;</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+        <span class="p">})</span>
+        <span class="c1"># ParameterList</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ParameterList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">8</span><span class="p">)),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">8</span><span class="p">)),</span>
+        <span class="p">])</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">ContainerDemo</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== state_dict key 命名规则 ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">&lt;40</span><span class="si">}</span><span class="s2"> shape=</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 规则总结 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Sequential (自动编号):  backbone.0.weight, backbone.1 等&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Sequential (命名 key):   head.fc.weight, head.act 等&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ModuleList:              branches.0.weight, branches.1 等&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ModuleDict:              adapters.scale.weight, adapters.shift 等&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ParameterList:           biases.0, biases.1（直接参数，无子属性）&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== state_dict key 命名规则 ===</span>
+<span class="go">  backbone.0.weight                         shape=[32, 64]</span>
+<span class="go">  backbone.0.bias                           shape=[32]</span>
+<span class="go">  head.fc.weight                            shape=[16, 32]</span>
+<span class="go">  head.fc.bias                              shape=[16]</span>
+<span class="go">  branches.0.weight                         shape=[8, 16]</span>
+<span class="go">  branches.0.bias                           shape=[8]</span>
+<span class="go">  branches.1.weight                         shape=[8, 16]</span>
+<span class="go">  branches.1.bias                           shape=[8]</span>
+<span class="go">  adapters.scale.weight                     shape=[8, 8]</span>
+<span class="go">  adapters.scale.bias                       shape=[8]</span>
+<span class="go">  adapters.shift.weight                     shape=[8, 8]</span>
+<span class="go">  adapters.shift.bias                       shape=[8]</span>
+<span class="go">  biases.0                                  shape=[8]</span>
+<span class="go">  biases.1                                  shape=[8]</span>
+
+<span class="go">=== 规则总结 ===</span>
+<span class="go">  Sequential (自动编号):  backbone.0.weight, backbone.1 等</span>
+<span class="go">  Sequential (命名 key):   head.fc.weight, head.act 等</span>
+<span class="go">  ModuleList:              branches.0.weight, branches.1 等</span>
+<span class="go">  ModuleDict:              adapters.scale.weight, adapters.shift 等</span>
+<span class="go">  ParameterList:           biases.0, biases.1（直接参数，无子属性）</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part D: 小结</h2>
+
+<h3>容器类选择决策树</h3>
+
+<pre><code>需要组织子模块？
+│
+├── 模块之间是串联计算关系？
+│   └── Sequential ✅
+│       ├── 简单链式：Sequential(mod1, mod2, mod3)
+│       └── 需要命名：Sequential(OrderedDict([...]))
+│
+├── 需要按索引访问，forward 中手动迭代？
+│   └── ModuleList ✅
+│       └── 永远不要用 Python list 存 Module！
+│
+├── 需要按名称动态路由？
+│   └── ModuleDict ✅
+│       └── 适合 MoE、条件计算等场景
+│
+└── 需要组织参数（非子模块）？
+    ├── 按索引访问 → ParameterList ✅
+    └── 按名称访问 → ParameterDict ✅</code></pre>
+
+<h3>要点清单</h3>
+
+<ul>
+<li><input type="checkbox" checked disabled> <code>Sequential</code> 的 <code>forward()</code> 实现<strong>链式调用</strong>：<code>for module in self: input = module(input)</code></li>
+<li><input type="checkbox" checked disabled> <code>Sequential.__getitem__</code> 支持整数索引（返回 Module）和切片（返回新 Sequential）</li>
+<li><input type="checkbox" checked disabled> <code>Sequential</code> 和 <code>ModuleList</code> 在删除/插入元素后会<strong>重新编号</strong></li>
+<li><input type="checkbox" checked disabled> <code>ModuleList</code> 没有 <code>forward()</code> 方法——它是存储容器，不是计算单元</li>
+<li><input type="checkbox" checked disabled> <strong>永远不要用 Python list 存储 Module</strong>：<code>parameters()</code> 和 <code>to()</code> 都不会递归进去</li>
+<li><input type="checkbox" checked disabled> <code>ModuleDict</code> 通过 <code>__setitem__</code> → <code>add_module()</code> 实现自动注册</li>
+<li><input type="checkbox" checked disabled> <code>ParameterList.__setitem__</code> 是<strong>唯一</strong>的 Tensor→Parameter 自动包装入口</li>
+<li><input type="checkbox" checked disabled> 容器类的 state_dict key 由<strong>属性名 + 内部 key</strong> 组成，层级结构与 <code>_modules</code> 一致</li>
+</ul>
+
+<h3>常见陷阱</h3>
+
+<table>
+<tr>
+<th>陷阱</th>
+<th>说明</th>
+</tr>
+<tr>
+<td><strong>Python list 存 Module</strong></td>
+<td><code>parameters()</code> 为空，<code>to(device)</code> 无效，state_dict 不保存</td>
+</tr>
+<tr>
+<td><strong>Sequential 切片保留原始 key</strong></td>
+<td><code>seq[1:3]</code> 返回的 Sequential 保留了 <code>"1"</code> 和 <code>"2"</code> 的 key（不是从 0 重新编号）</td>
+</tr>
+<tr>
+<td><strong>ModuleList forward 未定义</strong></td>
+<td>调用 <code>ModuleList()(x)</code> 会抛 <code>NotImplementedError</code></td>
+</tr>
+<tr>
+<td><strong>ParameterList 不能直接迭代</strong></td>
+<td><code>__iter__</code> 使用 <code>self[i]</code> 访问，O(n²) 复杂度，应避免频繁迭代</td>
+</tr>
+<tr>
+<td><strong>del ModuleDict item 后仍可被引用</strong></td>
+<td>已从 <code>_modules</code> 删除，但如果是通过 pop 操作持有引用，模块仍然存活</td>
+</tr>
+</table>
+
+<h3>与前后 Notebook 的关联</h3>
+
+<ul>
+<li><strong>Notebook 01</strong>（初始化）：容器类的 <code>add_module</code> 和 <code>__setattr__</code> 拦截机制</li>
+<li><strong>Notebook 03</strong>（层级导航）：容器类如何影响 <code>named_modules()</code>、<code>named_parameters()</code> 的遍历结果</li>
+<li><strong>Notebook 07</strong>（序列化）：容器类在 <code>state_dict()</code> 中的 key 命名规则</li>
+<li><strong>Notebook 08</strong>（全局 Hook）：全局 registration hook 在容器类增删子模块时的触发</li>
+</ul>
+
+<h3>延伸阅读</h3>
+
+<ul>
+<li><a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/container.py" target="_blank">PyTorch 源码 container.py</a></li>
+<li><a href="https://pytorch.org/docs/stable/generated/torch.nn.Sequential.html" target="_blank">PyTorch Sequential 文档</a></li>
+<li><a href="https://pytorch.org/docs/stable/generated/torch.nn.ModuleList.html" target="_blank">PyTorch ModuleList 文档</a></li>
+</ul>
+</div>
+
     </div>
 </main>
-<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a> · <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a></p></footer>
 <script src="../../js/main.js"></script>
 </body>
 </html>

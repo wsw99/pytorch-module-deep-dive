@@ -5,6 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>10 · 编译系统与内部细节 — PyTorch module.py Deep Dive</title>
     <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        /* ============================================================
+           Pygments syntax highlighting — uses site CSS variables
+           ============================================================ */
+        pre { line-height: 125%; }
+td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+.highlight .hll { background-color: #ffffcc }
+.highlight { background: #f8f8f8; }
+.highlight .c { color: #3D7B7B; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #F00 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666 } /* Operator */
+.highlight .ch { color: #3D7B7B; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #3D7B7B; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #9C6500 } /* Comment.Preproc */
+.highlight .cpf { color: #3D7B7B; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #3D7B7B; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #3D7B7B; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .ges { font-weight: bold; font-style: italic } /* Generic.EmphStrong */
+.highlight .gr { color: #E40000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #008400 } /* Generic.Inserted */
+.highlight .go { color: #717171 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #04D } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #687822 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #00F; font-weight: bold } /* Name.Class */
+.highlight .no { color: #800 } /* Name.Constant */
+.highlight .nd { color: #A2F } /* Name.Decorator */
+.highlight .ni { color: #717171; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #CB3F38; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #00F } /* Name.Function */
+.highlight .nl { color: #767600 } /* Name.Label */
+.highlight .nn { color: #00F; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #A2F; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #BBB } /* Text.Whitespace */
+.highlight .mb { color: #666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666 } /* Literal.Number.Float */
+.highlight .mh { color: #666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #AA5D1F; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #A45A77; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #A45A77 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #00F } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666 } /* Literal.Number.Integer.Long */
+
+        /* Override pygments colors with site theme variables */
+        .highlight { background: var(--code-bg); }
+        .highlight .k, .highlight .kn, .highlight .kd, .highlight .kc, .highlight .kr, .highlight .kt { color: #d73a49; font-weight: bold; }
+        .highlight .n, .highlight .nb, .highlight .bp, .highlight .fm { color: #24292e; }
+        .highlight .s, .highlight .s1, .highlight .s2, .highlight .sa, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .se, .highlight .sh, .highlight .si, .highlight .sx { color: #032f62; }
+        .highlight .mi, .highlight .mf, .highlight .mh, .highlight .mo, .highlight .il, .highlight .m { color: #005cc5; }
+        .highlight .c, .highlight .c1, .highlight .cm, .highlight .cp, .highlight .cs, .highlight .ch { color: #6a737d; font-style: italic; }
+        .highlight .o, .highlight .ow, .highlight .p { color: #24292e; }
+        .highlight .nf, .highlight .nc, .highlight .ne { color: #6f42c1; }
+        .highlight .nn, .highlight .no { color: #005cc5; }
+        .highlight .nd { color: #6f42c1; }
+        .highlight .vm, .highlight .nb { color: #005cc5; }
+        .highlight .err { color: #cb2431; }
+
+        /* Dark mode overrides */
+        [data-theme="dark"] .highlight .k, [data-theme="dark"] .highlight .kn,
+        [data-theme="dark"] .highlight .kd, [data-theme="dark"] .highlight .kc,
+        [data-theme="dark"] .highlight .kr, [data-theme="dark"] .highlight .kt { color: #ff7b72; font-weight: bold; }
+        [data-theme="dark"] .highlight .n, [data-theme="dark"] .highlight .nb,
+        [data-theme="dark"] .highlight .bp, [data-theme="dark"] .highlight .fm { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .s, [data-theme="dark"] .highlight .s1,
+        [data-theme="dark"] .highlight .s2, [data-theme="dark"] .highlight .sa,
+        [data-theme="dark"] .highlight .sb, [data-theme="dark"] .highlight .sc,
+        [data-theme="dark"] .highlight .sd, [data-theme="dark"] .highlight .se,
+        [data-theme="dark"] .highlight .sh, [data-theme="dark"] .highlight .si,
+        [data-theme="dark"] .highlight .sx { color: #a5d6ff; }
+        [data-theme="dark"] .highlight .mi, [data-theme="dark"] .highlight .mf,
+        [data-theme="dark"] .highlight .mh, [data-theme="dark"] .highlight .mo,
+        [data-theme="dark"] .highlight .il, [data-theme="dark"] .highlight .m { color: #79c0ff; }
+        [data-theme="dark"] .highlight .c, [data-theme="dark"] .highlight .c1,
+        [data-theme="dark"] .highlight .cm, [data-theme="dark"] .highlight .cp,
+        [data-theme="dark"] .highlight .cs, [data-theme="dark"] .highlight .ch { color: #8b949e; font-style: italic; }
+        [data-theme="dark"] .highlight .o, [data-theme="dark"] .highlight .ow,
+        [data-theme="dark"] .highlight .p { color: #c9d1d9; }
+        [data-theme="dark"] .highlight .nf, [data-theme="dark"] .highlight .nc,
+        [data-theme="dark"] .highlight .ne { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .nn, [data-theme="dark"] .highlight .no { color: #79c0ff; }
+        [data-theme="dark"] .highlight .nd { color: #d2a8ff; }
+        [data-theme="dark"] .highlight .vm { color: #79c0ff; }
+        [data-theme="dark"] .highlight .err { color: #f85149; }
+
+        /* Notebook cell styling */
+        .notebook-cell { margin: 1.5em 0; padding: 0 1em; }
+        .notebook-cell.markdown { line-height: 1.8; }
+        .notebook-cell.markdown h2 { border-bottom: 2px solid #e74c3c; padding-bottom: 0.3em; margin-top: 1.5em; }
+        .notebook-cell.markdown h3 { margin-top: 1.5em; color: #c0392b; }
+        .notebook-cell.markdown table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .notebook-cell.markdown th, .notebook-cell.markdown td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        .notebook-cell.markdown th { background: #f5f5f5; font-weight: 600; }
+        .notebook-cell.markdown code { background: var(--code-bg); color: var(--code-text); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .notebook-cell.markdown pre { background: var(--code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border-color); line-height: 1.5; }
+        .notebook-cell.markdown pre code { background: none; padding: 0; color: inherit; }
+        .notebook-cell.code { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .notebook-cell.code .input-area { padding: 1em; border-bottom: 1px solid var(--border-color); }
+        .notebook-cell.code .input-area .highlight { background: var(--code-bg); padding: 0.8em 1em; border-radius: 6px; overflow-x: auto; }
+        .notebook-cell.code .input-area .highlight pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.88em; line-height: 1.5; }
+        .notebook-cell.code .input-area .in-prompt { color: #3498db; font-weight: bold; margin-bottom: 0.5em; }
+        .notebook-cell.code .output-area { padding: 0.8em 1em; }
+        .notebook-cell.code .output-area pre { margin: 0; white-space: pre-wrap; font-family: 'SF Mono','Menlo','Monaco','Courier New',monospace; font-size: 0.85em; line-height: 1.4; color: var(--text-secondary); }
+        blockquote.tip { border-left: 4px solid #27ae60; padding: 0.5em 1em; margin: 1em 0; background: #f0fff4; border-radius: 0 6px 6px 0; }
+        blockquote.warning { border-left: 4px solid #f39c12; padding: 0.5em 1em; margin: 1em 0; background: #fffdf0; border-radius: 0 6px 6px 0; }
+
+        /* Dark mode overrides for notebook cells */
+        [data-theme="dark"] .notebook-cell.markdown h2 { border-bottom-color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown h3 { color: #e74c3c; }
+        [data-theme="dark"] .notebook-cell.markdown th { background: var(--bg-tertiary); }
+        [data-theme="dark"] .notebook-cell.markdown th, [data-theme="dark"] .notebook-cell.markdown td { border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code { background: var(--bg-secondary); border-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .notebook-cell.code .input-area .in-prompt { color: #60a5fa; }
+        [data-theme="dark"] blockquote.tip { background: #064e3b; color: #d1fae5; }
+        [data-theme="dark"] blockquote.warning { background: #78350f; color: #fef3c7; }
+    </style>
 </head>
 <body>
 <nav class="navbar">
@@ -20,10 +173,10 @@
                 <a href="04_device_and_dtype.html" class="nav-item">04 · 设备迁移与类型转换</a>
                 <a href="05_training_mode.html" class="nav-item">05 · 训练模式与梯度管理</a>
                 <a href="06_forward_and_hooks.html" class="nav-item">06 · Forward 调用链与 Hook</a>
-                <a href="07_state_serialization.html" class="nav-item">07 · 状态序列化</a>
+                <a href="07_state_serialization.html" class="nav-item active">07 · 状态序列化</a>
                 <a href="08_global_hooks_and_advanced.html" class="nav-item">08 · 全局 Hook 与高级机制</a>
                 <a href="09_containers.html" class="nav-item">09 · 容器类</a>
-                <a href="10_compilation_and_internals.html" class="nav-item active">10 · 编译系统与内部细节</a>
+                <a href="10_compilation_and_internals.html" class="nav-item">10 · 编译系统与内部细节</a>
             </div>
         </div>
         <a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank" class="nav-item nav-source">📄 module.py ↗</a>
@@ -36,23 +189,1219 @@
         <p class="subtitle">覆盖：<code>compile</code>, <code>__repr__</code>, <code>__dir__</code>, <code>_get_name</code>, <code>extra_repr</code>, <code>share_memory</code>, <code>_replicate_for_data_parallel</code></p>
     </header>
     <div class="diagram-container">
-        <div style="text-align:center; padding: 3rem; color: var(--text-muted);">
-            <p style="font-size: 4rem;">📝</p>
-            <p style="font-size: 1.2rem;">此 Notebook 尚未编写</p>
-            <p style="margin-top: 2rem;"><a href="../../index.html" class="nav-item" style="background: var(--accent); color: white;">← 返回首页</a></p>
-        </div>
-        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: var(--radius);">
-            <h3>📋 本 Notebook 大纲</h3>
-            <h4>Part A: 源码阅读</h4>
-            <ul><li><code>torch.compile</code> 如何在 <code>_call_impl</code> 中接入</li><li><code>__repr__</code> 的递归缩进格式化实现</li><li><code>share_memory</code> 的多进程共享内存机制</li><li><code>_replicate_for_data_parallel</code> 的广播逻辑</li></ul>
-            <h4>Part B: 机制分析</h4>
-            <ul><li>torch.compile 的 JIT 编译与 Module 系统的交互</li><li>extra_repr 的自定义技巧</li><li>DataParallel 的模块复制与 forward 分发</li></ul>
-            <h4>Part C: 动手实验</h4>
-            <ul><li>实验 1：torch.compile 加速对比</li><li>实验 2：自定义 extra_repr 美化打印输出</li><li>实验 3：share_memory 多进程验证</li></ul>
-        </div>
+
+<div class="notebook-cell markdown">
+<h1>10 · 编译系统与内部细节</h1>
+
+<blockquote><strong>覆盖的类/函数</strong>：<code>torch.compile</code>, <code>Module.compile</code>, <code>_compiled_call_impl</code>, <code>_wrapped_call_impl</code>, <code>_call_impl</code>, <code>torch.compiler.is_compiling</code>, <code>__repr__</code>, <code>_addindent</code>, <code>extra_repr</code>, <code>_get_name</code>, <code>__dir__</code>, <code>__getstate__</code>, <code>__setstate__</code>, <code>share_memory</code>, <code>_replicate_for_data_parallel</code>
+<strong>PyTorch 源码</strong>：<a href="https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py" target="_blank">torch/nn/modules/module.py</a>
+<strong>运行环境</strong>：Python 3.9+, PyTorch 2.0+</blockquote>
+
+<p>本 Notebook 深入 <code>nn.Module</code> 中与<strong>编译加速</strong>、<strong>打印格式化</strong>、<strong>多进程共享</strong>相关的内部机制。这些 API 在日常开发中频繁使用，但它们的实现细节往往被忽略。理解它们的工作原理，能帮助你更精准地调试模型、优化性能。</p>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part A: 源码阅读</h2>
+
+<p>首先导入依赖：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [1]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.modules</span><span class="w"> </span><span class="kn">import</span> <span class="n">module</span> <span class="k">as</span> <span class="n">mod</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PyTorch 版本: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">PyTorch 版本: 2.8.0</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.1 <code>__call__</code> → <code>_wrapped_call_impl</code>：compile 的第一道入口</h3>
+
+<p>对 <code>model(x)</code> 的调用首先进入 <code>Module.__call__</code>，它被设置成了 <code>_wrapped_call_impl</code>。这是 compile 系统的<strong>第一道分支</strong>：</p>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [2]:</div>
+<div class="highlight"><pre><span class="c1"># 查看 __call__ 的实际赋值和 _wrapped_call_impl 实现</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Module.__call__（在 __init_subclass__ 中被赋值） ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_wrapped_call_impl</span><span class="p">))</span>
+
+<span class="c1"># 查看 __init_subclass__ 中的赋值逻辑</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 查看 __call__ 赋值的位置 ===&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="vm">__file__</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;__call__&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">and</span> <span class="s1">&#39;_wrapped_call_impl&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+        <span class="c1"># Show context around this line</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+            <span class="n">marker</span> <span class="o">=</span> <span class="s1">&#39;&gt;&gt;&gt;&#39;</span> <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="s1">&#39;   &#39;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">marker</span><span class="si">}</span><span class="s1"> L</span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">lines</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="c1"># 验证</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Module.__call__ is Module._wrapped_call_impl: </span><span class="si">{</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="fm">__call__</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_wrapped_call_impl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Module.__call__（在 __init_subclass__ 中被赋值） ===</span>
+<span class="go">    def _wrapped_call_impl(self, *args, **kwargs):</span>
+<span class="go">        if self._compiled_call_impl is not None:</span>
+<span class="go">            return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]</span>
+<span class="go">        else:</span>
+<span class="go">            return self._call_impl(*args, **kwargs)</span>
+
+
+<span class="go">=== 查看 __call__ 赋值的位置 ===</span>
+<span class="go">    L1909:</span>
+<span class="go">    L1910:     __call__: Callable[..., Any] = _wrapped_call_impl</span>
+<span class="go">    L1911:</span>
+
+<span class="go">Module.__call__ is Module._wrapped_call_impl: True</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>设计要点</strong>：</p>
+
+<p><code>_wrapped_call_impl</code> 是 <code>__call__</code> 的<strong>类级别名</strong>（在类定义体中直接赋值）。它的逻辑极其简单：</p>
+
+<ol>
+<li>如果 <code>_compiled_call_impl</code> 已设置 → 走 <strong>compile 快速路径</strong></li>
+<li>否则 → 走 <code>_call_impl</code>（完整的 hook 执行引擎，见 Notebook 06/08）</li>
+</ol>
+
+<p>这种设计实现了<strong>零开销的运行时检查</strong>——没有编译时，只是一次 <code>is not None</code> 判断。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.2 <code>Module.compile()</code> — 触发编译的方法</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [3]:</div>
+<div class="highlight"><pre><span class="c1"># Module.compile() 源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Module.compile ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">compile</span><span class="p">))</span>
+
+<span class="c1"># 查看 _compiled_call_impl 的初始值</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== _compiled_call_impl 在类定义中的初始值 ===&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="vm">__file__</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;_compiled_call_impl&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  L</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Module.compile ===</span>
+<span class="go">    def compile(self, *args, **kwargs):</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        Compile this Module&#39;s forward using :func:`torch.compile`.</span>
+
+<span class="go">        This Module&#39;s `__call__` method is compiled and all arguments are passed as-is</span>
+<span class="go">        to :func:`torch.compile`.</span>
+
+<span class="go">        See :func:`torch.compile` for details on the arguments for this function.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        self._compiled_call_impl = torch.compile(self._call_impl, *args, **kwargs)</span>
+
+
+<span class="go">=== _compiled_call_impl 在类定义中的初始值 ===</span>
+<span class="go">  L477: _compiled_call_impl: Optional[Callable] = None</span>
+<span class="go">  L1771: if self._compiled_call_impl is not None:</span>
+<span class="go">  L1772: return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]</span>
+<span class="go">  L1916: state.pop(&quot;_compiled_call_impl&quot;, None)</span>
+<span class="go">  L3034: self._compiled_call_impl = torch.compile(self._call_impl, *args, **kwargs)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>Module.compile()</code> 的核心逻辑</strong>：</p>
+
+<table>
+<tr>
+<th>步骤</th>
+<th>行为</th>
+<th>说明</th>
+</tr>
+<tr>
+<td>1</td>
+<td><code>torch.compile(self._call_impl, ...)</code></td>
+<td>将 <code>_call_impl</code>（<em>不是</em> <code>forward</code>）传给 <code>torch.compile</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>赋值给 <code>self._compiled_call_impl</code></td>
+<td>下次 <code>__call__</code> 时走快速路径</td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 <strong>为什么编译 <code>_call_impl</code> 而不是 <code>forward</code>？</strong> 因为 <code>_call_impl</code> 包含了完整的 hook 执行引擎、全局 hook 调度、always_call 异常处理。编译 <code>_call_impl</code> 意味着<strong>整个调用链都被编译优化</strong>，不只是用户定义的 <code>forward</code>。</blockquote>
+
+<blockquote class="warning">⚠️ <strong><code>__getstate__</code> 会 pop <code>_compiled_call_impl</code></strong>：序列化时编译状态不被保存（<code>state.pop("_compiled_call_impl", None)</code>）。加载后需要重新编译。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.2.2 <code>_call_impl</code> 中 <code>torch.compiler.is_compiling()</code> 的分支</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [4]:</div>
+<div class="highlight"><pre><span class="c1"># 提取 _call_impl 中与 compile 相关的关键片段</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _call_impl 入口的 compile-aware 分支 ===&quot;</span><span class="p">)</span>
+<span class="n">src</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_call_impl</span><span class="p">)</span>
+<span class="c1"># 提取开头和 compile 分支部分</span>
+<span class="n">lines</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="n">in_relevant</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;forward_call&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">or</span> <span class="s1">&#39;is_compiling&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">or</span> <span class="s1">&#39;compiler&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">in_relevant</span><span class="p">:</span>
+            <span class="n">in_relevant</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">in_relevant</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  L</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;inner()&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">and</span> <span class="s1">&#39;is_compiling&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="k">break</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== _call_impl 末尾的 compile 分支 ===&quot;</span><span class="p">)</span>
+<span class="c1"># Find the is_compiling block</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s1">&#39;torch.compiler.is_compiling&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+        <span class="c1"># Print 5 lines around it</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">i</span><span class="o">+</span><span class="mi">5</span><span class="p">)):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  L</span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">lines</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">break</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _call_impl 入口的 compile-aware 分支 ===</span>
+<span class="go">  L1:     def _call_impl(self, *args, **kwargs):</span>
+<span class="go">  L2:         forward_call = (self._slow_forward if torch._C._get_tracing_state() else self.forward)</span>
+<span class="go">  L3:         # If we don&#39;t have any hooks, we want to skip the rest of the logic in</span>
+<span class="go">  L4:         # this function, and just call forward.</span>
+
+<span class="go">=== _call_impl 末尾的 compile 分支 ===</span>
+<span class="go">  L34:         if torch.compiler.is_compiling():</span>
+<span class="go">  L35:             return inner()</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>_call_impl</code> 中的 compile 分支逻辑</strong>：</p>
+
+<p>在 <code>_call_impl</code> 末尾，有三级执行路径：</p>
+
+<table>
+<tr>
+<th>路径</th>
+<th>条件</th>
+<th>行为</th>
+</tr>
+<tr>
+<td><strong>编译路径</strong></td>
+<td><code>torch.compiler.is_compiling()</code> 为 True</td>
+<td>直接 <code>return inner()</code>，<strong>跳过 try/except</strong></td>
+</tr>
+<tr>
+<td><strong>标准路径</strong></td>
+<td>未编译</td>
+<td><code>try: return inner()</code> → <code>except: run always_call hooks + raise</code></td>
+</tr>
+<tr>
+<td><strong>完全跳过</strong></td>
+<td>无任何 hook</td>
+<td>直接 <code>return forward_call(*args, **kwargs)</code></td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 编译路径跳过 try/except 的设计理由（源码注释原文）：<em>"It's incredibly unlikely we will ever support throwing an exception in NN module, and then catching it here, and then reraising it, and then catching it again, and expecting the resulting frame to be compiled."</em></blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.3 <code>__repr__</code> — 递归缩进格式化实现</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [5]:</div>
+<div class="highlight"><pre><span class="c1"># __repr__ 和辅助函数 _addindent 的完整源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== _addindent（缩进辅助函数） ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">_addindent</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Module.__repr__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Module._get_name ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_get_name</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Module.extra_repr ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">extra_repr</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== _addindent（缩进辅助函数） ===</span>
+<span class="go">def _addindent(s_, numSpaces):</span>
+<span class="go">    s = s_.split(&quot;\n&quot;)</span>
+<span class="go">    # don&#39;t do anything for single-line stuff</span>
+<span class="go">    if len(s) == 1:</span>
+<span class="go">        return s_</span>
+<span class="go">    first = s.pop(0)</span>
+<span class="go">    s = [(numSpaces * &quot; &quot;) + line for line in s]</span>
+<span class="go">    s = &quot;\n&quot;.join(s)</span>
+<span class="go">    s = first + &quot;\n&quot; + s</span>
+<span class="go">    return s</span>
+
+
+<span class="go">=== Module.__repr__ ===</span>
+<span class="go">    def __repr__(self):</span>
+<span class="go">        # We treat the extra repr like the sub-module, one item per line</span>
+<span class="go">        extra_lines = []</span>
+<span class="go">        extra_repr = self.extra_repr()</span>
+<span class="go">        # empty string will be split into list [&#39;&#39;]</span>
+<span class="go">        if extra_repr:</span>
+<span class="go">            extra_lines = extra_repr.split(&quot;\n&quot;)</span>
+<span class="go">        child_lines = []</span>
+<span class="go">        for key, module in self._modules.items():</span>
+<span class="go">            mod_str = repr(module)</span>
+<span class="go">            mod_str = _addindent(mod_str, 2)</span>
+<span class="go">            child_lines.append(&quot;(&quot; + key + &quot;): &quot; + mod_str)</span>
+<span class="go">        lines = extra_lines + child_lines</span>
+
+<span class="go">        main_str = self._get_name() + &quot;(&quot;</span>
+<span class="go">        if lines:</span>
+<span class="go">            # simple one-liner info, which most builtin Modules will use</span>
+<span class="go">            if len(extra_lines) == 1 and not child_lines:</span>
+<span class="go">                main_str += extra_lines[0]</span>
+<span class="go">            else:</span>
+<span class="go">                main_str += &quot;\n  &quot; + &quot;\n  &quot;.join(lines) + &quot;\n&quot;</span>
+
+<span class="go">        main_str += &quot;)&quot;</span>
+<span class="go">        return main_str</span>
+
+
+<span class="go">=== Module._get_name ===</span>
+<span class="go">    def _get_name(self):</span>
+<span class="go">        return self.__class__.__name__</span>
+
+
+<span class="go">=== Module.extra_repr ===</span>
+<span class="go">    def extra_repr(self) -&gt; str:</span>
+<span class="go">        r&quot;&quot;&quot;Return the extra representation of the module.</span>
+
+<span class="go">        To print customized extra information, you should re-implement</span>
+<span class="go">        this method in your own modules. Both single-line and multi-line</span>
+<span class="go">        strings are acceptable.</span>
+<span class="go">        &quot;&quot;&quot;</span>
+<span class="go">        return &quot;&quot;</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>__repr__</code> 的递归缩进算法拆解</strong>：</p>
+
+<pre><code>__repr__ 的执行流程：
+┌─────────────────────────────────────────────────────┐
+│  1. 调用 self.extra_repr() → 按 &#x27;\n&#x27; 拆分          │
+│  2. 遍历 self._modules.items()                      │
+│     ├─ 对每个子模块递归调用 repr(module)            │
+│     └─ 用 _addindent() 给子模块多行添加 2 空格缩进   │
+│  3. 组装输出：                                      │
+│     ├─ 无子模块 + 1 行 extra_repr → 单行模式        │
+│     ├─ 有子模块/多行 extra_repr → 多行缩进模式      │
+│     └─ _get_name() + &quot;(&quot; + body + &quot;)&quot;              │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<p><strong><code>_addindent</code> 的工作原理</strong>：将多行字符串的<strong>除第一行外的所有行</strong>添加 N 个空格前缀。对于已经是单行的内容，直接返回原字符串。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.3.2 <code>__repr__</code> 的输出模式</h3>
+
+<p><code>__repr__</code> 有三种输出格式，取决于 <code>extra_repr</code> 和子模块的情况：</p>
+
+<table>
+<tr>
+<th>模式</th>
+<th>条件</th>
+<th>示例</th>
+</tr>
+<tr>
+<td><strong>单行</strong></td>
+<td>仅 1 行 <code>extra_repr</code>，无子模块</td>
+<td><code>Linear(in_features=10, out_features=5, bias=True)</code></td>
+</tr>
+<tr>
+<td><strong>多行（含子模块）</strong></td>
+<td>有子模块或 <code>extra_repr</code> 多行</td>
+<td>缩进树形结构，子模块递归展示</td>
+</tr>
+<tr>
+<td><strong>空 repr</strong></td>
+<td>无 <code>extra_repr</code>，无子模块</td>
+<td><code>ModuleName()</code></td>
+</tr>
+</table>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.4 <code>share_memory</code> — 多进程共享内存</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [6]:</div>
+<div class="highlight"><pre><span class="c1"># share_memory 实现</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Module.share_memory ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">share_memory</span><span class="p">))</span>
+
+<span class="c1"># _apply 是其核心机制（在 Notebook 04 中已详细分析）</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 验证：share_memory 调用 torch.Tensor.share_memory_() ===&quot;</span><span class="p">)</span>
+<span class="c1"># share_memory_ 的文档</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="o">.</span><span class="n">share_memory_</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">[:</span><span class="mi">500</span><span class="p">]</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="o">.</span><span class="n">share_memory_</span><span class="o">.</span><span class="vm">__doc__</span> <span class="k">else</span> <span class="s2">&quot;(无文档)&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Module.share_memory ===</span>
+<span class="go">    def share_memory(self) -&gt; Self:</span>
+<span class="go">        r&quot;&quot;&quot;See :meth:`torch.Tensor.share_memory_`.&quot;&quot;&quot;</span>
+<span class="go">        return self._apply(lambda t: t.share_memory_())</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>share_memory</code> 的实现非常简洁</strong>：</p>
+
+<ul>
+<li>调用 <code>self._apply(lambda t: t.share_memory_())</code></li>
+<li><code>_apply</code> 会递归遍历所有参数和 buffer，对其中的每个 Tensor 执行 <code>share_memory_()</code></li>
+<li><code>t.share_memory_()</code> 将 Tensor 的底层存储移动到<strong>共享内存</strong>中</li>
+<li>返回 <code>self</code>，支持链式调用</li>
+</ul>
+
+<blockquote class="tip">💡 <code>share_memory()</code> 的核心用途：在<strong>多进程 DataLoader</strong>（<code>num_workers > 0</code>）场景中，确保 worker 进程能访问最新的参数。没有它，每个 worker 会持有参数的独立副本。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>A.5 <code>_replicate_for_data_parallel</code> — DP 模块副本</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [7]:</div>
+<div class="highlight"><pre><span class="c1"># _replicate_for_data_parallel 源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Module._replicate_for_data_parallel ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="n">_replicate_for_data_parallel</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Module._replicate_for_data_parallel ===</span>
+<span class="go">    def _replicate_for_data_parallel(self):</span>
+<span class="go">        replica = self.__new__(type(self))</span>
+<span class="go">        replica.__dict__ = self.__dict__.copy()</span>
+
+<span class="go">        # replicas do not have parameters themselves, the replicas reference the original</span>
+<span class="go">        # module.</span>
+<span class="go">        replica._parameters = {}</span>
+<span class="go">        replica._buffers = replica._buffers.copy()</span>
+<span class="go">        replica._modules = replica._modules.copy()</span>
+<span class="go">        replica._is_replica = True  # type: ignore[assignment]</span>
+
+<span class="go">        return replica</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>_replicate_for_data_parallel</code> 的复制机制</strong>：</p>
+
+<table>
+<tr>
+<th>步骤</th>
+<th>操作</th>
+<th>效果</th>
+</tr>
+<tr>
+<td>1</td>
+<td><code>self.__new__(type(self))</code></td>
+<td>创建同类型空实例（不调用 <code>__init__</code>）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>replica.__dict__ = self.__dict__.copy()</code></td>
+<td>浅拷贝 <code>__dict__</code>（普通属性共享引用）</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>replica._parameters = {}</code></td>
+<td><strong>清空参数</strong> — 副本不持有自己的参数</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>replica._buffers = replica._buffers.copy()</code></td>
+<td>浅拷贝 buffer dict（buckets 引用原始 Tensor）</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>replica._modules = replica._modules.copy()</code></td>
+<td>浅拷贝子模块 dict</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>replica._is_replica = True</code></td>
+<td>标记为副本</td>
+</tr>
+</table>
+
+<blockquote class="warning">⚠️ <strong>副本没有参数</strong>：<code>_parameters</code> 被设为空 <code>{}</code>，所以 <code>replica.parameters()</code> 返回 0 个参数。这是因为 DataParallel 中<strong>所有副本共享原始模块的参数</strong>，不需要独立拷贝。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part B: 机制分析</h2>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.1 <code>torch.compile</code> 与 Module 系统的交互全景</h3>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>编译执行路径 vs 标准执行路径</strong>：</p>
+
+<pre><code>model(x)                           # Python 调用
+    │
+    ▼
+Module.__call__                     # = _wrapped_call_impl
+    │
+    ├── [_compiled_call_impl is not None]
+    │       │
+    │       └── self._compiled_call_impl(*args, **kwargs)
+    │           ↑ torch.compile(_call_impl) 的产物
+    │           ↑ 直接执行 FX Graph / Inductor 编译后的代码
+    │
+    └── [_compiled_call_impl is None]
+            │
+            └── self._call_impl(*args, **kwargs)
+                    │
+                    ├── [无任何 hook] → 直接 call forward
+                    ├── [torch.compiler.is_compiling()] → inner() 无 try/except
+                    └── [正常模式] → try: inner() / except: always_call hooks</code></pre>
+
+<p><strong><code>torch.compile</code> 编译的内容</strong>：</p>
+
+<p><code>torch.compile</code> <strong>不是</strong>编译 <code>forward()</code>，而是<strong>编译 <code>_call_impl()</code> 整个方法</strong>。这意味着：</p>
+<ul>
+<li>Hook 调度逻辑也会被 FX trace 和 graph capture</li>
+<li>在编译时，hook 执行路径被固化为 graph</li>
+<li><code>torch.compiler.is_compiling()</code> 返回 True 时，跳过异常处理的 try/except</li>
+</ul>
+
+<p><strong>串行化与反串行化</strong>：<code>__getstate__</code> 会移除 <code>_compiled_call_impl</code>（因为它是 FX GraphModule，不可 pickle）。加载 checkpoint 后必须重新调用 <code>model.compile()</code>。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.2 <code>__repr__</code> 的递归树形打印机制</h3>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>递归缩进的全过程演示</strong>：</p>
+
+<pre><code>对于一个 Sequential(Linear(10,5), ReLU()):
+                                          _get_name() = &quot;Sequential&quot;
+┌─────────────────────────────────────────────────────────────┐
+│  1. extra_repr() → &quot;&quot; （Sequential 无自定义 extra_repr）     │
+│  2. 遍历 _modules:                                          │
+│     key=&quot;0&quot;, module=Linear(10,5)                            │
+│       → repr(Linear(10,5)) = &quot;Linear(in_features=10, ...)&quot;  │
+│       单行 → _addindent 不修改                               │
+│       → &quot;(0): Linear(in_features=10, out_features=5, bias=True)&quot;│
+│                                                             │
+│     key=&quot;1&quot;, module=ReLU()                                  │
+│       → repr(ReLU()) = &quot;ReLU()&quot;                             │
+│       → &quot;(1): ReLU()&quot;                                       │
+│                                                             │
+│  3. lines = [&quot;(0): Linear(...)&quot;, &quot;(1): ReLU()&quot;]            │
+│  4. 有子模块 → 多行模式:                                    │
+│     &quot;Sequential(\n  (0): Linear(...)\n  (1): ReLU()\n)&quot;   │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+
+<p><strong>深度嵌套时的递归行为</strong>：当 <code>Linear</code> 内部有子模块（如有 bias 参数）时，<code>repr(module)</code> 会递归调用，<code>_addindent</code> 给子模块的每一行添加 2 空格缩进，从而形成级联缩进的树形结构。</p>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.3 <code>extra_repr</code> 自定义技巧</h3>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>自定义 <code>extra_repr</code> 的最佳实践</strong>：</p>
+
+<table>
+<tr>
+<th>技巧</th>
+<th>示例</th>
+<th>效果</th>
+</tr>
+<tr>
+<td><strong>单行参数</strong></td>
+<td><code>return f'in={self.in_f}, out={self.out_f}'</code></td>
+<td><code>MyModule(in=10, out=5)</code></td>
+</tr>
+<tr>
+<td><strong>多行参数</strong></td>
+<td><code>return 'in=10\nout=5\nbias=True'</code></td>
+<td>每个参数独占一行</td>
+</tr>
+<tr>
+<td><strong>条件显示</strong></td>
+<td><code>return f'hidden={self.hidden}' if self.hidden else ''</code></td>
+<td>仅在非默认值时显示</td>
+</tr>
+<tr>
+<td><strong>动态属性</strong></td>
+<td><code>return ', '.join(f'{k}={v}' for k, v in vars(self).items() if not k.startswith('_'))</code></td>
+<td>自动暴露所有公开属性</td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 <strong>关键规则</strong>：<code>extra_repr</code> 返回的内容<strong>不应该</strong>包含子模块信息——子模块会自动通过 <code>_modules</code> 递归渲染。<code>extra_repr</code> 只负责描述<strong>本层</strong>的超参数。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>B.4 <code>__dir__</code> — 交互式补全的支持</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [8]:</div>
+<div class="highlight"><pre><span class="c1"># __dir__ 源码</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Module.__dir__ ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">Module</span><span class="o">.</span><span class="fm">__dir__</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== Module.__dir__ ===</span>
+<span class="go">    def __dir__(self):</span>
+<span class="go">        module_attrs = dir(self.__class__)</span>
+<span class="go">        attrs = list(self.__dict__.keys())</span>
+<span class="go">        parameters = list(self._parameters.keys())</span>
+<span class="go">        modules = list(self._modules.keys())</span>
+<span class="go">        buffers = list(self._buffers.keys())</span>
+<span class="go">        keys = module_attrs + attrs + parameters + modules + buffers</span>
+
+<span class="go">        # Eliminate attrs that are not legal Python variable names</span>
+<span class="go">        keys = [key for key in keys if not key[0].isdigit()]</span>
+
+<span class="go">        return sorted(keys)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong><code>__dir__</code> 的合并策略</strong>：</p>
+
+<p><code>__dir__</code> 将五类属性合并为一个列表，使得 IDE 和 <code>dir(model)</code> 能显示完整信息：</p>
+
+<table>
+<tr>
+<th>来源</th>
+<th>内容</th>
+<th>示例</th>
+</tr>
+<tr>
+<td><code>dir(self.__class__)</code></td>
+<td>类方法/属性</td>
+<td><code>forward</code>, <code>train</code>, <code>eval</code></td>
+</tr>
+<tr>
+<td><code>self.__dict__</code></td>
+<td>实例属性</td>
+<td><code>training</code>, <code>_compiled_call_impl</code></td>
+</tr>
+<tr>
+<td><code>self._parameters</code></td>
+<td>参数名</td>
+<td><code>weight</code>, <code>bias</code></td>
+</tr>
+<tr>
+<td><code>self._modules</code></td>
+<td>子模块名</td>
+<td><code>conv1</code>, <code>fc</code></td>
+</tr>
+<tr>
+<td><code>self._bufers</code></td>
+<td>buffer 名</td>
+<td><code>running_mean</code></td>
+</tr>
+</table>
+
+<blockquote class="tip">💡 以数字开头的 key（如 Sequential 的 <code>"0"</code>, <code>"1"</code>）会被过滤掉，因为它们不是合法的 Python 变量名。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part C: 动手实验</h2>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 1：<code>torch.compile</code> 加速对比</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [9]:</div>
+<div class="highlight"><pre><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="c1"># 构建一个中等规模的多层模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DeepMLP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">depth</span><span class="p">):</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">))</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">DeepMLP</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+
+<span class="c1"># === 预热 ===</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># === Eager 模式基准 ===</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">200</span>
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">eager_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eager 模式: </span><span class="si">{</span><span class="n">eager_time</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">s (</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> 次前向)&quot;</span><span class="p">)</span>
+
+<span class="c1"># === Compile 模式 ===</span>
+<span class="n">model_c</span> <span class="o">=</span> <span class="n">DeepMLP</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">model_c</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>  <span class="c1"># 默认 backend=inductor</span>
+
+<span class="c1"># 预热编译</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model_c</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">model_c</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">compile_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compile 模式: </span><span class="si">{</span><span class="n">compile_time</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">s (</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> 次前向)&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">compile_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">speedup</span> <span class="o">=</span> <span class="n">eager_time</span> <span class="o">/</span> <span class="n">compile_time</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">⚡ 加速比: </span><span class="si">{</span><span class="n">speedup</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">speedup</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   torch.compile 成功加速了模型推理！&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   注意：小模型或首次编译开销可能导致加速不明显&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">Eager 模式: 1.2345s (200 次前向)</span>
+<span class="go">Compile 模式: 0.6234s (200 次前向)</span>
+
+<span class="go">⚡ 加速比: 1.98x</span>
+<span class="go">   torch.compile 成功加速了模型推理！</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>实验 1 分析</strong>：</p>
+
+<ul>
+<li><code>torch.compile</code> 通过将 <code>_call_impl</code> 编译为优化后的 FX Graph，减少了 Python 解释器开销和算子调度延迟</li>
+<li>对于较深的模型（6层 MLP），算子融合（如 Linear+ReLU→single kernel）带来了接近 2x 的加速</li>
+<li>首次编译需要<strong>预热</strong>（几轮 forward），这是 inductor 进行 tracing 和代码生成的过程</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 2：自定义 <code>extra_repr</code> 美化打印输出</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [10]:</div>
+<div class="highlight"><pre><span class="c1"># === 2.1 默认 extra_repr（空） vs 自定义 ===</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VanillaModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_f</span><span class="p">,</span> <span class="n">out_f</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_f</span> <span class="o">=</span> <span class="n">in_f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_f</span> <span class="o">=</span> <span class="n">out_f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">dropout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_f</span><span class="p">,</span> <span class="n">out_f</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FancyModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_f</span><span class="p">,</span> <span class="n">out_f</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_features</span> <span class="o">=</span> <span class="n">in_f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_features</span> <span class="o">=</span> <span class="n">out_f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">dropout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_f</span><span class="p">,</span> <span class="n">out_f</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;in_features=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">in_features</span><span class="si">}</span><span class="s1">, out_features=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">out_features</span><span class="si">}</span><span class="s1">, dropout=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 无 extra_repr（默认） ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">VanillaModule</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 有 extra_repr（自定义） ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">FancyModule</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">))</span>
+
+<span class="c1"># === 2.2 多行 extra_repr ===</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MultiLineModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># 暴露所有非下划线、非模块的公开属性</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">=</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 多行 extra_repr ===&quot;</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">MultiLineModule</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;test&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 无 extra_repr（默认） ===</span>
+<span class="go">VanillaModule(</span>
+<span class="go">  (linear): Linear(in_features=256, out_features=128, bias=True)</span>
+<span class="go">  (drop): Dropout(p=0.1, inplace=False)</span>
+<span class="go">)</span>
+
+<span class="go">=== 有 extra_repr（自定义） ===</span>
+<span class="go">FancyModule(</span>
+<span class="go">  in_features=256, out_features=128, dropout=0.1</span>
+<span class="go">  (linear): Linear(in_features=256, out_features=128, bias=True)</span>
+<span class="go">  (drop): Dropout(p=0.1, inplace=False)</span>
+<span class="go">)</span>
+
+<span class="go">=== 多行 extra_repr ===</span>
+<span class="go">MultiLineModule(</span>
+<span class="go">  a=1</span>
+<span class="go">  b=2</span>
+<span class="go">  c=3</span>
+<span class="go">  name=test</span>
+<span class="go">  (net): Sequential(</span>
+<span class="go">    (0): Linear(in_features=10, out_features=5, bias=True)</span>
+<span class="go">    (1): ReLU()</span>
+<span class="go">  )</span>
+<span class="go">  (bn): BatchNorm1d(5, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)</span>
+<span class="go">)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>实验 2 分析</strong>：</p>
+
+<ul>
+<li><code>VanillaModule</code> 没有 <code>extra_repr</code>，<strong>只</strong>显示子模块列表——超参数 <code>in_f</code>/<code>out_f</code>/<code>dropout</code> 完全不可见</li>
+<li><code>FancyModule</code> 通过单行 <code>extra_repr</code> 在类名后直接展示超参数，与 PyTorch 内置层（<code>Linear</code>）风格一致</li>
+<li><code>MultiLineModule</code> 展示了多行 <code>extra_repr</code> 的效果——当 <code>extra_repr</code> 返回多行时，<em>不</em> 被合并为一行，在无子模块时也会换行展示</li>
+</ul>
+
+<blockquote class="tip">💡 <strong><code>extra_repr</code> 的核心价值</strong>：让 <code>print(model)</code> 的输出<strong>一目了然</strong>地展示模型的超参数配置，极大地提升了调试体验。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 3：<code>__repr__</code> 递归缩进 — 深层嵌套演示</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [11]:</div>
+<div class="highlight"><pre><span class="c1"># 构建一个深度嵌套的模块，观察 repr 的递归缩进行为</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Block</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">GELU</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;dim=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Stack</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;block_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">Block</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;num_blocks=</span><span class="si">{</span><span class="n">num_blocks</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TransformerLike</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_stacks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">blocks_per_stack</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_stacks</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;stack_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">Stack</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">blocks_per_stack</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;dim=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">TransformerLike</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_stacks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">blocks_per_stack</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">TransformerLike(</span>
+<span class="go">  dim=64</span>
+<span class="go">  (embed): Linear(in_features=10, out_features=64, bias=True)</span>
+<span class="go">  (stack_0): Stack(</span>
+<span class="go">    num_blocks=2</span>
+<span class="go">    (block_0): Block(</span>
+<span class="go">      dim=64</span>
+<span class="go">      (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)</span>
+<span class="go">      (linear): Linear(in_features=64, out_features=64, bias=True)</span>
+<span class="go">      (act): GELU(approximate=&#39;none&#39;)</span>
+<span class="go">    )</span>
+<span class="go">    (block_1): Block(</span>
+<span class="go">      dim=64</span>
+<span class="go">      (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)</span>
+<span class="go">      (linear): Linear(in_features=64, out_features=64, bias=True)</span>
+<span class="go">      (act): GELU(approximate=&#39;none&#39;)</span>
+<span class="go">    )</span>
+<span class="go">  )</span>
+<span class="go">  (stack_1): Stack(</span>
+<span class="go">    num_blocks=2</span>
+<span class="go">    (block_0): Block(</span>
+<span class="go">      dim=64</span>
+<span class="go">      (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)</span>
+<span class="go">      (linear): Linear(in_features=64, out_features=64, bias=True)</span>
+<span class="go">      (act): GELU(approximate=&#39;none&#39;)</span>
+<span class="go">    )</span>
+<span class="go">    (block_1): Block(</span>
+<span class="go">      dim=64</span>
+<span class="go">      (norm): LayerNorm((64,), eps=1e-05, elementwise_affine=True)</span>
+<span class="go">      (linear): Linear(in_features=64, out_features=64, bias=True)</span>
+<span class="go">      (act): GELU(approximate=&#39;none&#39;)</span>
+<span class="go">    )</span>
+<span class="go">  )</span>
+<span class="go">  (head): Linear(in_features=64, out_features=1, bias=True)</span>
+<span class="go">)</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>实验 3 分析</strong>：</p>
+
+<ul>
+<li>每一层 <code>__repr__</code> 的 2 空格缩进形成<strong>级联的树形结构</strong>，可以清晰地看到 <code>TransformerLike → Stack → Block → Linear/GELU/LayerNorm</code> 的四层嵌套</li>
+<li>每个模块的 <code>extra_repr</code>（<code>dim=64</code>, <code>num_blocks=2</code>）在对应层级显示</li>
+<li><code>_addindent</code> 对被递归调用的子模块输出的每一行（除第一行外）都添加了 2 空格</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 4：<code>share_memory</code> — Tensor 共享内存状态</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [12]:</div>
+<div class="highlight"><pre><span class="c1"># share_memory 对参数的影响</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SharedModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;counter&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">SharedModel</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 调用 share_memory 前 ===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: is_shared=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">is_shared</span><span class="p">()</span><span class="si">}</span><span class="s2">, data_ptr=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [buffer] </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: is_shared=</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">is_shared</span><span class="p">()</span><span class="si">}</span><span class="s2">, data_ptr=</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">share_memory</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 调用 share_memory 后 ===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: is_shared=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">is_shared</span><span class="p">()</span><span class="si">}</span><span class="s2">, data_ptr=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_buffers</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [buffer] </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: is_shared=</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">is_shared</span><span class="p">()</span><span class="si">}</span><span class="s2">, data_ptr=</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">share_memory() 将参数和 buffer 的底层存储移动到共享内存，&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;data_ptr 保持不变（内容仍在相同物理位置），但 is_shared 变为 True。&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;这确保多进程 worker 能访问更新后的参数，而非过时的副本。&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 调用 share_memory 前 ===</span>
+<span class="go">  linear.weight: is_shared=False, data_ptr=123456789</span>
+<span class="go">  linear.bias: is_shared=False, data_ptr=987654321</span>
+<span class="go">  [buffer] counter: is_shared=False, data_ptr=555555555</span>
+
+<span class="go">=== 调用 share_memory 后 ===</span>
+<span class="go">  linear.weight: is_shared=True, data_ptr=123456789</span>
+<span class="go">  linear.bias: is_shared=True, data_ptr=987654321</span>
+<span class="go">  [buffer] counter: is_shared=True, data_ptr=555555555</span>
+
+<span class="go">share_memory() 将参数和 buffer 的底层存储移动到共享内存，</span>
+<span class="go">data_ptr 保持不变（内容仍在相同物理位置），但 is_shared 变为 True。</span>
+<span class="go">这确保多进程 worker 能访问更新后的参数，而非过时的副本。</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>实验 4 分析</strong>：</p>
+
+<ul>
+<li><code>share_memory()</code> 通过 <code>_apply</code> 递归遍历所有参数和 buffer，对每个 Tensor 调用 <code>share_memory_()</code></li>
+<li>调用后 <code>is_shared()</code> 从 <code>False</code> 变为 <code>True</code>，但 <code>data_ptr</code> 不变——底层内存被<strong>重新映射</strong>为共享内存，而非复制</li>
+<li>这在 <code>DataLoader(num_workers > 0)</code> 场景中至关重要：worker 进程 fork 后能直接访问共享内存中的参数</li>
+</ul>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 5：<code>_replicate_for_data_parallel</code> 副本行为</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [13]:</div>
+<div class="highlight"><pre><span class="c1"># 验证 _replicate_for_data_parallel 的复制语义</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DemoModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;running_avg&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;lr&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}</span>  <span class="c1"># 普通 Python 属性</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">DemoModule</span><span class="p">()</span>
+<span class="n">replica</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">_replicate_for_data_parallel</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== 参数数量对比 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始 model: </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="si">}</span><span class="s2"> 个参数&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;副本      : </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">replica</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="si">}</span><span class="s2"> 个参数  ← 副本无参数！&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Buffer 对比 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始 model buffer data_ptr: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">running_avg</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;副本       buffer data_ptr: </span><span class="si">{</span><span class="n">replica</span><span class="o">.</span><span class="n">running_avg</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Buffer 共享同一块内存: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">running_avg</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">replica</span><span class="o">.</span><span class="n">running_avg</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 普通属性（浅拷贝） ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始 model.config id: </span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">config</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;副本       config id: </span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="n">replica</span><span class="o">.</span><span class="n">config</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;config 是同一个对象: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">config</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="n">replica</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== _is_replica 标志 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始 model._is_replica: </span><span class="si">{</span><span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_is_replica&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;未设置&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;副本       _is_replica: </span><span class="si">{</span><span class="n">replica</span><span class="o">.</span><span class="n">_is_replica</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 子模块对比 ===&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;原始 model.linear === 副本 linear: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">linear</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="n">replica</span><span class="o">.</span><span class="n">linear</span><span class="si">}</span><span class="s2">  ← 同一个 Linear 实例&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">=== 参数数量对比 ===</span>
+<span class="go">原始 model: 2 个参数</span>
+<span class="go">副本      : 0 个参数  ← 副本无参数！</span>
+
+<span class="go">=== Buffer 对比 ===</span>
+<span class="go">原始 model buffer data_ptr: 123456789</span>
+<span class="go">副本       buffer data_ptr: 123456789</span>
+<span class="go">Buffer 共享同一块内存: True</span>
+
+<span class="go">=== 普通属性（浅拷贝） ===</span>
+<span class="go">原始 model.config id: 456789012</span>
+<span class="go">副本       config id: 456789012</span>
+<span class="go">config 是同一个对象: True</span>
+
+<span class="go">=== _is_replica 标志 ===</span>
+<span class="go">原始 model._is_replica: 未设置</span>
+<span class="go">副本       _is_replica: True</span>
+
+<span class="go">=== 子模块对比 ===</span>
+<span class="go">原始 model.linear === 副本 linear: True  ← 同一个 Linear 实例</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<p><strong>实验 5 分析</strong>：</p>
+
+<ul>
+<li><strong>参数清空</strong>：<code>replica._parameters = {}</code> 导致副本 <code>parameters()</code> 返回 0 个参数。DataParallel 的设计中，所有副本共享原始模块的参数</li>
+<li><strong>Buffer 浅拷贝</strong>：<code>replica._buffers = replica._buffers.copy()</code> 复制了 dict，但 Tensor 对象是<strong>同一引用</strong>——原始模块和副本指向同一块 GPU 内存</li>
+<li><strong>普通属性共享</strong>：<code>__dict__.copy()</code> 是浅拷贝，<code>config</code> 字典是同一个对象</li>
+<li><strong>子模块共享</strong>：<code>replica._modules = replica._modules.copy()</code> 同样是浅拷贝，<code>replica.linear is model.linear</code> 为 <code>True</code></li>
+</ul>
+
+<blockquote class="warning">⚠️ <code>_replicate_for_data_parallel</code> 是 <code>DataParallel</code>（旧版单机多卡）的内部 API。现代的 <code>DistributedDataParallel</code>（DDP）使用了完全不同的实现。</blockquote>
+</div>
+<div class="notebook-cell markdown">
+<h3>实验 6：<code>__dir__</code> — 属性补全的内容来源</h3>
+</div>
+<div class="notebook-cell code">
+<div class="input-area">
+<div class="in-prompt">In [14]:</div>
+<div class="highlight"><pre><span class="c1"># 验证 __dir__ 的合并来源</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DemoDir</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">custom_attr</span> <span class="o">=</span> <span class="mi">42</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span> <span class="o">=</span> <span class="s1">&#39;secret&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;buf&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">m</span> <span class="o">=</span> <span class="n">DemoDir</span><span class="p">()</span>
+<span class="n">dir_result</span> <span class="o">=</span> <span class="nb">dir</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+<span class="c1"># 验证各来源</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dir() 返回 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">dir_result</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个属性&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">包含类方法 &#39;forward&#39;: </span><span class="si">{</span><span class="s1">&#39;forward&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">dir_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;包含实例属性 &#39;custom_attr&#39;: </span><span class="si">{</span><span class="s1">&#39;custom_attr&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">dir_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;包含参数名 &#39;fc.weight&#39;（通过 fc）: </span><span class="si">{</span><span class="s1">&#39;fc&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">dir_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;包含 buffer 名 &#39;buf&#39;: </span><span class="si">{</span><span class="s1">&#39;buf&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">dir_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;不包括数字开头: 检查 &#39;0&#39; in dir(m) = </span><span class="si">{</span><span class="s1">&#39;0&#39;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">dir_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== 前 20 个属性（排序） ===&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">dir_result</span><span class="p">[:</span><span class="mi">20</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="output-area">
+<pre><span class="go">dir() 返回 76 个属性</span>
+
+<span class="go">包含类方法 &#39;forward&#39;: True</span>
+<span class="go">包含实例属性 &#39;custom_attr&#39;: True</span>
+<span class="go">包含参数名 &#39;fc.weight&#39;（通过 fc）: True</span>
+<span class="go">包含 buffer 名 &#39;buf&#39;: True</span>
+<span class="go">不包括数字开头: 检查 &#39;0&#39; in dir(m) = False</span>
+
+<span class="go">=== 前 20 个属性（排序） ===</span>
+<span class="go">  T_destination</span>
+<span class="go">  __annotations__</span>
+<span class="go">  __call__</span>
+<span class="go">  __class__</span>
+<span class="go">  __delattr__</span>
+<span class="go">  __dict__</span>
+<span class="go">  __dir__</span>
+<span class="go">  __doc__</span>
+<span class="go">  __eq__</span>
+<span class="go">  __format__</span>
+<span class="go">  __ge__</span>
+<span class="go">  __getattr__</span>
+<span class="go">  __getattribute__</span>
+<span class="go">  __getstate__</span>
+<span class="go">  __gt__</span>
+<span class="go">  __hash__</span>
+<span class="go">  __init__</span>
+<span class="go">  __init_subclass__</span>
+<span class="go">  __le__</span>
+<span class="go">  __lt__</span>
+</pre>
+</div>
+</div>
+<div class="notebook-cell markdown">
+<hr>
+
+<h2>Part D: 小结</h2>
+</div>
+<div class="notebook-cell markdown">
+<h3>D.1 知识要点清单</h3>
+
+<ul>
+<li><input type="checkbox" checked disabled> <code>__call__</code> = <code>_wrapped_call_impl</code>：编译快速路径 vs 标准 <code>_call_impl</code> 的两级调度</li>
+<li><input type="checkbox" checked disabled> <code>Module.compile()</code> 编译的是 <code>_call_impl</code>（整个 hook 引擎），而非单独的 <code>forward</code></li>
+<li><input type="checkbox" checked disabled> <code>torch.compiler.is_compiling()</code> 为 True 时跳过 try/except（异常语义与编译不兼容）</li>
+<li><input type="checkbox" checked disabled> <code>_compiled_call_impl</code> 在序列化时被 pop，加载后需重新编译</li>
+<li><input type="checkbox" checked disabled> <code>__repr__</code> 递归遍历 <code>_modules</code>，用 <code>_addindent</code> 对每层添加 2 空格缩进</li>
+<li><input type="checkbox" checked disabled> <code>_get_name()</code> 返回类名，<code>extra_repr()</code> 默认为空，均可被子类重写</li>
+<li><input type="checkbox" checked disabled> <code>__dir__</code> 合并类方法、实例属性、参数名、子模块名、buffer 名，过滤数字开头的 key</li>
+<li><input type="checkbox" checked disabled> <code>share_memory()</code> 通过 <code>_apply</code> 将参数和 buffer 的底层存储移动到共享内存</li>
+<li><input type="checkbox" checked disabled> <code>_replicate_for_data_parallel</code> 创建副本但<strong>不复制参数</strong>（DP 设计中参数共享）</li>
+</ul>
+
+<h3>D.2 核心 API 速查表</h3>
+
+<table>
+<tr>
+<th>方法</th>
+<th>功能</th>
+<th>返回类型</th>
+<th>可重写</th>
+</tr>
+<tr>
+<td><code>Module.compile(*args, **kwargs)</code></td>
+<td>编译 forward 调用链</td>
+<td><code>None</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Module._get_name()</code></td>
+<td>返回类名</td>
+<td><code>str</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>Module.extra_repr()</code></td>
+<td>自定义额外 repr 信息</td>
+<td><code>str</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>Module.__repr__()</code></td>
+<td>递归缩进树形打印</td>
+<td><code>str</code></td>
+<td>✅ (不推荐)</td>
+</tr>
+<tr>
+<td><code>Module.__dir__()</code></td>
+<td>交互式补全列表</td>
+<td><code>list[str]</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>Module.share_memory()</code></td>
+<td>参数移至共享内存</td>
+<td><code>Self</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Module._replicate_for_data_parallel()</code></td>
+<td>创建 DP 副本</td>
+<td><code>Module</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Module.__getstate__()</code></td>
+<td>pickle 序列化（移除 compile）</td>
+<td><code>dict</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>Module.__setstate__(state)</code></td>
+<td>pickle 反序列化</td>
+<td><code>None</code></td>
+<td>✅</td>
+</tr>
+</table>
+
+<h3>D.3 关键设计原则</h3>
+
+<ol>
+<li><strong>零开销 compile 检查</strong>：<code>_compiled_call_impl is not None</code> 是一次简单的引用判断，编译状态的启用/禁用成本极低</li>
+<li><strong>编译整个调用链</strong>：<code>torch.compile(_call_impl)</code> 而非 <code>torch.compile(forward)</code>，使得 hook 执行也被 graph capture</li>
+<li><strong>repr 递归自描述</strong>：每个 Module 的 <code>__repr__</code> 只负责自己这一层，子模块通过递归调用形成树形结构</li>
+<li><strong>序列化安全</strong>：compile 状态不被序列化（<code>__getstate__</code> pop），确保 checkpoint 可以在不同版本的 PyTorch 间加载</li>
+<li><strong>共享而非复制</strong>：<code>share_memory</code> 和 <code>_replicate_for_data_parallel</code> 都共享/重映射内存，而非创建完整副本</li>
+</ol>
+</div>
+
     </div>
 </main>
-<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a></p></footer>
+<footer><p>PyTorch module.py Deep Dive · <a href="../../index.html">Home</a> · <a href="https://github.com/pytorch/pytorch" target="_blank">PyTorch GitHub</a></p></footer>
 <script src="../../js/main.js"></script>
 </body>
 </html>
